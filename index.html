@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>strudel-gb | Game Boy Live Coding Studio</title>
+  <meta name="description" content="A premium Game Boy APU synthesis suite integrated with Strudel Live Coding. Playground, REPL, and Interactive Reference Guide.">
+  
+  <link rel="stylesheet" href="shared.css">
+  <script src="shared.js"></script>
+  <style>
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(244, 63, 94, 0.1) 0px, transparent 50%);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow-x: hidden;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 3rem 2rem;
+      width: 100%;
+      text-align: center;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .hero-header {
+      margin-bottom: 3.5rem;
+    }
+
+    .hero-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 3.5rem;
+      background: linear-gradient(135deg, #a5b4fc 0%, #6366f1 50%, #f43f5e 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.04em;
+      margin-bottom: 0.75rem;
+      display: inline-block;
+    }
+
+    .tagline {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    .alpha-warning-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      padding: 0.45rem 1.1rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      color: #fbbf24;
+      margin-bottom: 1.5rem;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 20px rgba(245, 158, 11, 0.15);
+    }
+
+    .alpha-badge {
+      background: #f59e0b;
+      color: #000;
+      font-size: 0.7rem;
+      font-weight: 800;
+      padding: 0.15rem 0.55rem;
+      border-radius: 9999px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* Portal Grid & Cards */
+    .portal-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 2rem;
+      margin-top: 1rem;
+    }
+
+    .portal-card {
+      background: var(--bg-card);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 2.5rem 2rem;
+      backdrop-filter: blur(12px);
+      text-decoration: none;
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1.5rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .portal-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 100%);
+      opacity: 1;
+      pointer-events: none;
+    }
+
+    .portal-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    .card-playground:hover {
+      border-color: rgba(96, 165, 250, 0.4);
+      box-shadow: 0 20px 40px rgba(96, 165, 250, 0.15);
+    }
+
+    .card-repl:hover {
+      border-color: rgba(244, 63, 94, 0.4);
+      box-shadow: 0 20px 40px rgba(244, 63, 94, 0.15);
+    }
+
+    .card-guide:hover {
+      border-color: rgba(167, 139, 250, 0.4);
+      box-shadow: 0 20px 40px rgba(167, 139, 250, 0.15);
+    }
+
+    .card-icon {
+      font-size: 3rem;
+      margin-bottom: 0.5rem;
+      transition: transform 0.3s ease;
+    }
+
+    .portal-card:hover .card-icon {
+      transform: scale(1.1);
+    }
+
+    .card-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.5rem;
+      color: #fff;
+    }
+
+    .card-desc {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      text-align: center;
+      flex: 1;
+    }
+
+    .card-btn {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.65rem 1.75rem;
+      border-radius: 8px;
+      width: 100%;
+      border: 1px solid var(--glass-border);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text);
+      transition: all 0.2s ease;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card-playground .card-btn { color: var(--accent-blue); border-color: rgba(96, 165, 250, 0.2); background: rgba(96, 165, 250, 0.05); }
+    .card-playground:hover .card-btn { background: var(--accent-blue); color: #000; border-color: var(--accent-blue); }
+
+    .card-repl .card-btn { color: var(--accent-pink); border-color: rgba(244, 63, 94, 0.2); background: rgba(244, 63, 94, 0.05); }
+    .card-repl:hover .card-btn { background: var(--accent-pink); color: #fff; border-color: var(--accent-pink); }
+
+    .card-guide .card-btn { color: #a78bfa; border-color: rgba(167, 139, 250, 0.2); background: rgba(167, 139, 250, 0.05); }
+    .card-guide:hover .card-btn { background: #818cf8; color: #fff; border-color: #818cf8; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    
+    <div class="hero-header">
+      <div class="alpha-warning-pill">
+        <span class="alpha-badge">Alpha Release</span>
+        <span>This plugin is currently in active <strong>Alpha development</strong>. Features and APIs may evolve rapidly.</span>
+      </div>
+      <div>
+        <h1 class="hero-title">strudel-gb</h1>
+      </div>
+      <p class="tagline">
+        A premium Game Boy APU sound synthesis suite integrated with Strudel Live Coding. 
+        Synthesize retro audio via hardware parameters, compose chiptune loops, and explore.
+      </p>
+    </div>
+
+    <div class="portal-grid">
+      
+      <!-- Playground Card -->
+      <a href="playground.html" class="portal-card card-playground">
+        <div class="card-icon">🎮</div>
+        <h2 class="card-title">Hardware Playground</h2>
+        <p class="card-desc">
+          Directly manipulate Game Boy registers using virtual hardware sliders. 
+          Layer preset instruments, adjust duty cycles, and watch real-time waveforms in a Game Boy visualizer.
+        </p>
+        <div class="card-btn">
+          Open Playground
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </a>
+
+      <!-- REPL Card -->
+      <a href="repl.html" class="portal-card card-repl">
+        <div class="card-icon">⚡</div>
+        <h2 class="card-title">Composition REPL</h2>
+        <p class="card-desc">
+          Write chiptune compositions using Strudel live-coding syntax. 
+          Use custom instruments like <code>.s("gb.lead")</code>, program drum patterns, and trigger notes in code.
+        </p>
+        <div class="card-btn">
+          Open REPL
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </a>
+
+      <!-- Reference Guide Card -->
+      <a href="guide.html" class="portal-card card-guide">
+        <div class="card-icon">📖</div>
+        <h2 class="card-title">Reference Guide</h2>
+        <p class="card-desc">
+          Browse the complete chiptune preset catalog, test sound previews in your browser, 
+          copy code snippets, and review register parameters and composition recipes.
+        </p>
+        <div class="card-btn">
+          Open Guide
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </a>
+
+    </div>
+
+  </div>
+
+  <footer>
+    <div>
+      strudel-gb plugin designed by <span class="flashy-gold-name">Aurélien Drouet</span> &copy; 2026.
+    </div>
+    <div class="licenses-links">
+      <a href="https://github.com/strudel-gb/strudel-gb.github.io" target="_blank" rel="noopener noreferrer">GitHub Repo</a> |
+      Licenses:
+      <a href="LICENSE" target="_blank" rel="noopener noreferrer">strudel-gb (GPL-3.0)</a> |
+      <a href="https://github.com/tidalcycles/strudel/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">strudel (GPL-3.0)</a> |
+      <a href="https://github.com/shamblesides/apu/blob/master/LICENSE" target="_blank" rel="noopener noreferrer">apu (BSD-3-Clause)</a>
+    </div>
+  </footer>
+
+</body>
+</html>

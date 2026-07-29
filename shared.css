@@ -1,0 +1,616 @@
+/* ==========================================================================
+   strudel-gb — Unified Design System & Shared CSS
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Theme Variables & Fonts
+   -------------------------------------------------------------------------- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500;600&family=Roboto+Mono:wght@400;600&display=swap');
+
+:root {
+  --bg-dark: #0d0e15;
+  --bg-card: rgba(18, 20, 38, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-light: rgba(255, 255, 255, 0.15);
+  
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --accent-purple: #818cf8;
+  --accent-blue: #60a5fa;
+  --accent-pink: #f43f5e;
+  --accent-green: #10b981;
+  --accent-orange: #fb923c;
+  --accent-glow: rgba(99, 102, 241, 0.4);
+  
+  --text: #f3f4f6;
+  --text-muted: #94a3b8;
+  
+  --gb-screen-bg: #8bac0f;
+  --gb-screen-text: #0f380f;
+
+  --pulse1-color: #f43f5e;
+  --pulse2-color: #fb923c;
+  --wave-color: #60a5fa;
+  --noise-color: #a78bfa;
+}
+
+/* --------------------------------------------------------------------------
+   2. Base Resets & Global Styles
+   -------------------------------------------------------------------------- */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  background-color: var(--bg-dark);
+  color: var(--text);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* --------------------------------------------------------------------------
+   3. Unified Navigation / Control Bar (.control-bar)
+   -------------------------------------------------------------------------- */
+.control-bar {
+  height: 54px;
+  width: 100%;
+  background-color: #12131e;
+  border-bottom: 1px solid #1e2030;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  box-sizing: border-box;
+  z-index: 100;
+  position: relative;
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  cursor: default;
+}
+
+.logo-text {
+  color: #3b82f6;
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-family: 'Outfit', sans-serif;
+  margin: 0;
+}
+
+.logo-badge {
+  background-color: #1e3a8a;
+  color: #3b82f6;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid #2563eb;
+  line-height: 1;
+}
+
+.nav-menu {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  margin-left: 2rem;
+}
+
+.nav-link {
+  color: #94a3b8;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  position: relative;
+  padding: 0.25rem 0;
+}
+
+.nav-link:hover {
+  color: #fff;
+}
+
+.nav-link.active {
+  color: #3b82f6;
+}
+
+.nav-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: #3b82f6;
+  border-radius: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   4. Shared Buttons, Selects & Form Controls
+   -------------------------------------------------------------------------- */
+.btn-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: none;
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background-color: var(--primary);
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-play {
+  background-color: #10b981;
+}
+
+.btn-play:hover {
+  background-color: #059669;
+  transform: translateY(-1px);
+}
+
+.btn-play:active {
+  transform: translateY(0);
+}
+
+.btn-stop {
+  background-color: #ef4444;
+}
+
+.btn-stop:hover {
+  background-color: #dc2626;
+  transform: translateY(-1px);
+}
+
+.btn-stop:active {
+  transform: translateY(0);
+}
+
+.sample-select, .polyphony-select {
+  background-color: #1e293b;
+  color: #94a3b8;
+  border: 1px solid #334155;
+  padding: 0.4rem 1.8rem 0.4rem 1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2394a3b8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E');
+  background-repeat: no-repeat;
+  background-position: right 0.7rem top 50%;
+  background-size: 0.65rem auto;
+}
+
+.sample-select:hover:not(:disabled), .polyphony-select:hover {
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+.setting-label {
+  color: #94a3b8;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  user-select: none;
+  cursor: pointer;
+}
+
+.setting-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  background-color: #1e293b;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.setting-checkbox:hover {
+  border-color: #3b82f6;
+}
+
+.setting-checkbox:checked {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.setting-checkbox:checked::after {
+  content: '✓';
+  font-size: 0.7rem;
+  color: white;
+  font-weight: bold;
+}
+
+/* --------------------------------------------------------------------------
+   5. Status Badges
+   -------------------------------------------------------------------------- */
+.status-badges {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.badge {
+  padding: 0.3rem 0.8rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: inline-flex;
+  align-items: center;
+}
+
+.badge-phase {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
+}
+
+.badge-status {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.badge-status.online {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #6ee7b7;
+}
+
+/* --------------------------------------------------------------------------
+   6. Game Boy LCD Screen & Bezel Component
+   -------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------------
+   6. Game Boy LCD Screen & Bezel Component
+   -------------------------------------------------------------------------- */
+.gb-bezel {
+  background: #252836;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  padding: 1rem;
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-sizing: border-box;
+}
+
+.gb-screen {
+  background: var(--gb-screen-bg);
+  flex: 1;
+  border-radius: 6px;
+  border: 3px solid #6b820a;
+  box-shadow: inset 0 3px 6px rgba(0,0,0,0.5);
+  padding: 0.75rem;
+  font-family: 'Roboto Mono', monospace;
+  color: var(--gb-screen-text);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  position: relative;
+}
+
+.gb-screen::after {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0; left: 0; bottom: 0; right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.08) 50%);
+  background-size: 100% 3px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.screen-header {
+  font-size: 0.7rem;
+  font-weight: 800;
+  border-bottom: 1px dashed var(--gb-screen-text);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.screen-content {
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 70px;
+}
+
+.screen-visualizer {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 4px;
+  height: 38px;
+  margin-top: 6px;
+  padding: 4px;
+  background: rgba(15, 56, 15, 0.15);
+  border-radius: 4px;
+}
+
+.viz-bar {
+  width: 7px;
+  height: 4px;
+  background: var(--gb-screen-text);
+  border-radius: 2px 2px 0 0;
+  transition: height 0.05s ease;
+}
+
+.screen-footer {
+  font-size: 0.65rem;
+  font-weight: 700;
+  border-top: 1px dashed var(--gb-screen-text);
+  padding-top: 4px;
+  margin-top: 4px;
+  text-align: center;
+}
+
+.channel-viz-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  font-size: 0.8rem;
+  font-family: 'Roboto Mono', monospace;
+  color: var(--gb-screen-text);
+  padding: 0.35rem 0;
+}
+
+.channel-viz-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  line-height: 1.3;
+  opacity: 0.65;
+  transition: opacity 0.1s ease;
+}
+
+.channel-viz-row.active {
+  opacity: 1.0;
+  font-weight: bold;
+}
+
+.ch-name {
+  width: 26px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.ch-note {
+  width: 40px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.ch-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  width: 95px;
+  height: 12px;
+  justify-content: center;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.ch-block {
+  width: 8px;
+  height: 10px;
+  background-color: var(--gb-screen-text);
+  opacity: 0.2;
+  border-radius: 1px;
+  transition: opacity 0.05s ease;
+  display: inline-block;
+  box-sizing: border-box;
+}
+
+.ch-block.active {
+  opacity: 1.0;
+  box-shadow: 0 0 2px rgba(15, 56, 15, 0.4);
+}
+
+.ch-timbre {
+  flex: 1;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   7. Cards & Diagnostic Log Panels
+   -------------------------------------------------------------------------- */
+.dashboard-card {
+  background: rgba(22, 24, 38, 0.6);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.card-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #93c5fd;
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 0.5rem;
+  font-family: 'Outfit', sans-serif;
+}
+
+.diagnostic-log {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.75rem;
+  background: rgba(10, 11, 18, 0.8);
+  border-radius: 6px;
+  padding: 0.75rem;
+  border: 1px solid var(--glass-border);
+  color: #38bdf8;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  flex-grow: 1;
+  height: 180px;
+}
+
+/* Diagnostic Badges */
+.warn-badge {
+  background-color: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+
+  display: inline-block;
+  margin-right: 0.4rem;
+}
+
+.fatal-badge {
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  display: inline-block;
+  margin-right: 0.4rem;
+}
+
+/* --------------------------------------------------------------------------
+   8. Shared Footer Styling
+   -------------------------------------------------------------------------- */
+footer {
+  border-top: 1px solid var(--glass-border);
+  padding: 1.5rem 0;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: rgba(7, 10, 19, 0.8);
+  backdrop-filter: blur(12px);
+  width: 100%;
+}
+
+.flashy-gold-name {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  background: linear-gradient(
+    90deg,
+    #ffe066 0%,
+    #f59e0b 25%,
+    #fef08a 50%,
+    #d97706 75%,
+    #ffe066 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gold-shimmer 3s linear infinite;
+  text-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+  display: inline-block;
+}
+
+@keyframes gold-shimmer {
+  0% { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+.licenses-links {
+  margin-top: 0.6rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.licenses-links a {
+  color: #94a3b8;
+  text-decoration: none;
+  transition: color 0.2s ease;
+  margin: 0 0.35rem;
+}
+
+.licenses-links a:hover {
+  color: #f59e0b;
+}

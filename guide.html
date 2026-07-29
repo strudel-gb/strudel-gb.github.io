@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>strudel-gb | Interactive Reference Guide</title>
+  <meta name="description" content="Interactive developer guide and sound catalog for the Strudel Game Boy plugin (strudel-gb)">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="shared.css">
+  <script src="shared.js"></script>
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --bg-card: rgba(17, 24, 39, 0.6);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --accent: #6366f1;
+      --accent-glow: rgba(99, 102, 241, 0.4);
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --text-green: #34d399;
+      --pulse1-color: #f43f5e;
+      --pulse2-color: #fb923c;
+      --wave-color: #60a5fa;
+      --noise-color: #a78bfa;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(167, 139, 250, 0.1) 0px, transparent 50%);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      line-height: 1.6;
+      padding-bottom: 5rem;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 2rem;
+    }
+
+    .nav-menu {
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+    }
+    
+    .nav-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      position: relative;
+      padding: 0.25rem 0;
+    }
+    
+    .nav-link:hover {
+      color: #fff;
+    }
+    
+    .nav-link.active {
+      color: #818cf8;
+    }
+    
+    .nav-link.active::after {
+      content: '';
+      position: absolute;
+      bottom: -6px;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: #818cf8;
+      border-radius: 2px;
+    }
+
+    .boot-container {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .status-badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--glass-border);
+      padding: 0.35rem 0.75rem;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .status-badge::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ef4444; /* red when offline */
+      box-shadow: 0 0 8px #ef4444;
+      transition: all 0.3s ease;
+    }
+
+    .status-badge.online {
+      color: var(--text-green);
+      background: rgba(52, 211, 153, 0.1);
+      border-color: rgba(52, 211, 153, 0.2);
+    }
+
+    .status-badge.online::before {
+      background: var(--text-green);
+      box-shadow: 0 0 8px var(--text-green);
+    }
+
+    .btn-boot {
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: #fff;
+      border: none;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      padding: 0.5rem 1.25rem;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px var(--accent-glow);
+      transition: all 0.2s ease;
+    }
+
+    .btn-boot:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px var(--accent-glow);
+    }
+
+    .btn-boot:active {
+      transform: translateY(1px);
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 2.5rem auto;
+      padding: 0 1.5rem;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2.5rem;
+    }
+
+    /* Section Styles */
+    section {
+      background: var(--bg-card);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 2rem;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    }
+
+    h2 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.75rem;
+      margin-bottom: 1.5rem;
+      color: #fff;
+      border-bottom: 1px solid var(--glass-border);
+      padding-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    p {
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+      font-size: 0.95rem;
+    }
+
+    /* Table Styles */
+    .instrument-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .category-group {
+      margin-bottom: 1rem;
+    }
+
+    .category-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #818cf8;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .category-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--glass-border);
+    }
+
+    .instrument-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+
+    .instrument-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 0.75rem;
+      transition: all 0.2s ease;
+    }
+
+    .instrument-card:hover {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(99, 102, 241, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .inst-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+    }
+
+    .inst-name {
+      font-family: 'Fira Code', monospace;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #fff;
+    }
+
+    .channel-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+    }
+
+    .badge-pulse1 { background: rgba(244, 63, 94, 0.15); color: var(--pulse1-color); }
+    .badge-pulse2 { background: rgba(251, 146, 60, 0.15); color: var(--pulse2-color); }
+    .badge-wave { background: rgba(96, 165, 250, 0.15); color: var(--wave-color); }
+    .badge-noise { background: rgba(167, 139, 250, 0.15); color: var(--noise-color); }
+
+    .inst-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .inst-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.25rem;
+    }
+
+    .btn-action {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--glass-border);
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.35rem;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.3rem;
+      transition: all 0.2s ease;
+    }
+
+    .btn-action:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .btn-play-demo {
+      background: rgba(99, 102, 241, 0.1);
+      border-color: rgba(99, 102, 241, 0.2);
+      color: #a5b4fc;
+    }
+
+    .btn-play-demo:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    /* Code Block Styles */
+    pre, code {
+      font-family: 'Fira Code', monospace;
+    }
+
+    code.inline-code {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--glass-border);
+      padding: 0.15rem 0.35rem;
+      border-radius: 4px;
+      color: #f43f5e;
+      font-size: 0.85rem;
+    }
+
+    .code-panel {
+      position: relative;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin: 1rem 0;
+      overflow-x: auto;
+    }
+
+    .code-panel pre {
+      font-size: 0.85rem;
+      color: #e5e7eb;
+    }
+
+    .btn-copy {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--glass-border);
+      color: var(--text-muted);
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-copy:hover {
+      background: rgba(255, 255, 255, 0.10);
+      color: #fff;
+    }
+
+    .alert {
+      background: rgba(99, 102, 241, 0.1);
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      gap: 0.75rem;
+      align-items: start;
+    }
+
+    .alert-icon {
+      font-size: 1.25rem;
+      color: #818cf8;
+      line-height: 1;
+    }
+
+    .alert-content {
+      font-size: 0.85rem;
+      color: #a5b4fc;
+    }
+
+    /* Grid Layout for Reference Table */
+    .ref-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+
+    .ref-table th, .ref-table td {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .ref-table th {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #818cf8;
+    }
+
+    .ref-table td {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .ref-table tr:hover td {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.01);
+    }
+  </style>
+</head>
+<body>
+
+  <header class="control-bar" style="position: sticky; top: 0;">
+    <div style="display: flex; align-items: center;">
+      <div class="logo-container">
+        <h1 class="logo-text">strudel-gb</h1>
+        <div class="logo-badge">Reference Guide</div>
+      </div>
+      <nav class="nav-menu">
+        <a href="playground.html" class="nav-link">Playground</a>
+        <a href="repl.html" class="nav-link">Live REPL</a>
+        <a href="guide.html" class="nav-link active">Reference Guide</a>
+        <a href="https://github.com/strudel-gb/strudel-gb.github.io" target="_blank" rel="noopener noreferrer" class="nav-link">GitHub</a>
+      </nav>
+    </div>
+
+    <div class="status-badges">
+      <div class="badge badge-status" id="statusBadge">Engine Offline</div>
+      <button class="btn btn-primary" id="btnBoot" style="font-size: 0.8rem; padding: 0.35rem 0.8rem;">Boot Audio Engine</button>
+    </div>
+  </header>
+
+  <div class="container">
+    
+    <!-- Introduction Section -->
+    <section>
+      <h2>🎮 Game Boy Synthesis in Strudel</h2>
+      <p>
+        The <code>strudel-gb</code> plugin binds Game Boy hardware-based synthesis to the <strong>Strudel Live Coding</strong> environment.
+        Behind the scenes, the sound engine compiles a C-based emulator into WebAssembly, running on an isolated browser audio thread.
+      </p>
+      
+      <div class="alert">
+        <span class="alert-icon">💡</span>
+        <div class="alert-content">
+          <strong>Interactive Mode:</strong> Click the <strong>"Boot Audio Engine"</strong> button at the top of this page to activate the APU simulator. Once online, you can click on the <strong>"▶ Demo"</strong> button next to any instrument below to hear it in real-time!
+        </div>
+      </div>
+      
+      <div class="code-panel">
+        <button class="btn-copy" onclick="copyCode(this, `note(\x22C4 D4 E4 G4\x22).s(\x22gb.lead\x22)`)">Copy</button>
+        <pre><code>note("C4 D4 E4 G4")
+  .s("gb.lead")
+  .fast(2)</code></pre>
+      </div>
+    </section>
+
+    <!-- Instruments Catalog Section -->
+    <section id="presetsSection">
+      <h2>🔊 Predefined Instruments & FX Catalog</h2>
+      <p>
+        Drums and complex presets are registered as full synthesizer instruments. You can select them directly in Strudel using <code>.s("instrument-name")</code>.
+      </p>
+      
+      <div class="instrument-grid" id="instrumentsGrid">
+        <!-- Will be populated dynamically via JS -->
+      </div>
+    </section>
+
+    <!-- Hardware Parameters Section -->
+    <section>
+      <h2>⚙️ Hardware Register Parameters Reference</h2>
+      <p>
+        For expert sound design, chain these parameters onto your Strudel pattern to adjust raw hardware parameters.
+      </p>
+      
+      <table class="ref-table">
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Type</th>
+            <th>Valid Values</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>.channel(val)</code></td>
+            <td>String</td>
+            <td><code>"pulse1"</code>, <code>"pulse2"</code>, <code>"wave"</code>, <code>"noise"</code></td>
+            <td>Directs the notes to play on specific Game Boy hardware channels.</td>
+          </tr>
+          <tr>
+            <td><code>.duty(val)</code></td>
+            <td>Number</td>
+            <td><code>12.5</code>, <code>25</code>, <code>50</code>, <code>75</code></td>
+            <td>Set Pulse Wave duty cycle width (thin, classic, hollow, biting). Pulse 1/2 only.</td>
+          </tr>
+          <tr>
+            <td><code>.volume(val)</code></td>
+            <td>Number</td>
+            <td><code>0</code> to <code>15</code> (Wave: <code>0</code>, <code>1</code>, <code>2</code>, <code>3</code>)</td>
+            <td>Sets the initial channel volume level.</td>
+          </tr>
+          <tr>
+            <td><code>.envelope(obj)</code></td>
+            <td>Object</td>
+            <td><code>{ initial, direction, pace }</code></td>
+            <td>Sets initial volume (0-15), direction (<code>"down"</code>/<code>"up"</code>), and pace time (0-7).</td>
+          </tr>
+          <tr>
+            <td><code>.pitchSweep(obj)</code></td>
+            <td>Object</td>
+            <td><code>{ rate, amount }</code></td>
+            <td>Sets sweep rate (0-7) and pitch glide direction/shift amount (+/- 7). Pulse 1 only.</td>
+          </tr>
+          <tr>
+            <td><code>.waveTable(val)</code></td>
+            <td>Str/Arr</td>
+            <td><code>"sine"</code>, <code>"sawtooth"</code>, custom hex, or 32-number array</td>
+            <td>Writes custom 4-bit wavetable samples (0-15) for the Wave channel.</td>
+          </tr>
+          <tr>
+            <td><code>.lfsr(val)</code></td>
+            <td>Number</td>
+            <td><code>7</code>, <code>15</code></td>
+            <td>Sets Noise shift register bit-width (7 = metallic/tonal, 15 = white noise).</td>
+          </tr>
+          <tr>
+            <td><code>.frequency(val)</code></td>
+            <td>Obj/Num</td>
+            <td><code>{ shift, dividing }</code> or raw byte</td>
+            <td>Configures Noise generator clock multiplier and divisor ratio.</td>
+          </tr>
+          <tr>
+            <td><code>.arp(arr)</code></td>
+            <td>Array/Str</td>
+            <td><code>[0, 4, 7]</code>, <code>"0 3 7"</code></td>
+            <td>Fakes chord polyphony in the audio thread using high-speed arpeggiation offsets.</td>
+          </tr>
+          <tr>
+            <td><code>.pan(val)</code></td>
+            <td>Number</td>
+            <td><code>-1</code> (Left) to <code>1</code> (Right)</td>
+            <td>Stereo panning using NR51 channel pan mapping (Left/Center/Right).</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Composition Examples -->
+    <section>
+      <h2>📝 Advanced Composition Recipes</h2>
+      
+      <h3 style="font-size: 1.1rem; margin-top: 1rem; color: #a5b4fc;">1. Classic Stereo Counterpoint</h3>
+      <p>Pan two pulse leads opposite ways to create a wider stereo image.</p>
+      <div class="code-panel">
+        <button class="btn-copy" onclick="copyCode(this, `stack(note(\x22C4 E4 G4 B4\x22).s(\x22gb.lead\x22).pan(-0.8).arp([0, 7]), note(\x22E3 G3 B3 D4\x22).s(\x22gb.pad\x22).pan(0.8).tags(\x22nasal\x22))`)">Copy</button>
+        <pre><code>stack(
+  note("C4 E4 G4 B4").s("gb.lead").pan(-0.8).arp([0, 7]),
+  note("E3 G3 B3 D4").s("gb.pad").pan(0.8).tags("nasal")
+)</code></pre>
+      </div>
+
+      <h3 style="font-size: 1.1rem; margin-top: 1.5rem; color: #a5b4fc;">2. Game Boy Drum Loop</h3>
+      <p>Create a full chiptune loop using pre-routed percussion instruments.</p>
+      <div class="code-panel">
+        <button class="btn-copy" onclick="copyCode(this, `stack(note(\x22C4\x22).s(\x22gb.kick\x22).struct(\x221 0 0 0 1 0 0 0\x22), note(\x22C4\x22).s(\x22gb.snare\x22).struct(\x220 0 1 0 0 0 1 0\x22), note(\x22C4\x22).s(\x22gb.hihat\x22).struct(\x221 1 1 1 1 1 1 1\x22))`)">Copy</button>
+        <pre><code>stack(
+  note("C4").s("gb.kick").struct("1 0 0 0 1 0 0 0"),
+  note("C4").s("gb.snare").struct("0 0 1 0 0 0 1 0"),
+  note("C4").s("gb.hihat").struct("1 1 1 1 1 1 1 1")
+)</code></pre>
+  </div>
+
+  <footer>
+    <div>
+      strudel-gb plugin designed by <span class="flashy-gold-name">Aurélien Drouet</span> &copy; 2026.
+    </div>
+    <div class="licenses-links">
+      <a href="https://github.com/strudel-gb/strudel-gb.github.io" target="_blank" rel="noopener noreferrer">GitHub Repo</a> |
+      Licenses:
+      <a href="LICENSE" target="_blank" rel="noopener noreferrer">strudel-gb (GPL-3.0)</a> |
+      <a href="https://github.com/tidalcycles/strudel/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">strudel (GPL-3.0)</a> |
+      <a href="https://github.com/shamblesides/apu/blob/master/LICENSE" target="_blank" rel="noopener noreferrer">apu (BSD-3-Clause)</a>
+    </div>
+  </footer>
+
+  <script type="module">
+    import { initGBPlugin, INSTRUMENTS } from './strudel-gb-plugin.js';
+
+    let audioCtx = null;
+    let gbNode = null;
+    let isInitialized = false;
+    const synths = {};
+
+    const instrumentDescriptions = {
+      'gb': 'Default lead synth. 50% duty cycle, moderate volume.',
+      'gb.lead': 'Piercing lead. 25% duty cycle, full volume, standard decay.',
+      'gb.square': 'Basic square wave. 50% duty cycle, average decay.',
+      'gb.pluck': 'Fast-decaying pluck. 12.5% duty cycle, snappy envelope.',
+      'gb.pad': 'Slow, decaying background pad.',
+      'gb.vibrato': 'Hardware-emulated vibrato sweep panned right.',
+      'gb.siren': 'Alternating dual-tone siren utilizing hardware pitch sweep.',
+      'gb.steel-drum': 'Snappy metallic steel drum pluck.',
+      'gb.alien': 'Sci-fi bubble sound using fast software arpeggiator.',
+      'gb.heavy-kick': 'Low-frequency punch using aggressive hardware pitch drop.',
+      'gb.sci-fi-zap': 'Standard laser sweep panned left.',
+      'gb.deep-tom': 'Thick tom percussion on a 75% duty pulse wave.',
+      'gb.water-plop': 'Ascending rapid sweep imitating a bubble/water sound.',
+      'gb.slow-brass': 'Slow attack synth brass.',
+      'gb.harpsichord': 'Nasal, quick-decaying string emulation panned left.',
+      'gb.magic-chime': 'Bell chime gliding upwards panned right.',
+      'gb.mellow-flute': 'Soft, round flute sound.',
+      'gb.crunch-lead': 'Bright, woody lead melody instrument panned right.',
+      'gb.bell-pluck': 'Snappy bell pluck panned left.',
+      'gb.square-sub': 'Sustained square bass line.',
+      'gb.delay-trail': 'Auxiliary echo decay preset panned right.',
+      'gb.soft-pad': 'Slow swelling soft pad panned left.',
+      'gb.bowed-string': 'Swelling string instrument on a 75% duty cycle.',
+      'gb.arp-synth': 'Very fast decay lead suited for rapid arpeggios.',
+      'gb.pulse-organ': 'Slow-decaying chord-friendly organ/accordion panned left.',
+      'gb.drip': 'High, short droplet sound.',
+      'gb.coin': 'Classic Mario coin chime (two fast notes in quick arpeggiation).',
+      'gb.jump': 'Classic Mario-like jump sound (rapid upward frequency sweep).',
+      'gb.balloon': 'Rubbery rising balloon squeak/bounce sound (upward sweep).',
+      'gb.bubble': 'Wet, short bubble pop sound (downward sweep).',
+      'gb.teleport': 'Sci-fi ascending tone sequence using the arpeggiator.',
+      'gb.bass': 'Deep chiptune bass using a custom sawtooth table.',
+      'gb.sub-bass': 'Warm, deep custom sine wave bass.',
+      'gb.triangle': 'Pure, soft NES-style triangle lead panned left.',
+      'gb.organ': 'Classical drawbar organ sound using a custom harmonic wavetable.',
+      'gb.voice': 'Formant vocal "Oh" shape.',
+      'gb.saw-double': 'Two sawtooth periods inside one wave memory buffer, doubling pitch.',
+      'gb.acid-pwm': 'Pulse-width modulation approximation creating an aggressive TB-303 style synth.',
+      'gb.slap-bass': 'Triangle wave truncated with long zero regions, simulating metal slap click.',
+      'gb.fuzz-guitar': 'High-distortive waveform simulating a clipping guitar fuzz pedal.',
+      'gb.kick': 'Deep white-noise thump.',
+      'gb.kick-noise': '7-bit metallic kick drum drone.',
+      'gb.snare': 'Classic punchy snare config.',
+      'gb.snare-tight': 'Snappy, rapid-decay snare.',
+      'gb.snare-lofi': 'Grit-rich snare drum with longer decay.',
+      'gb.hihat': 'Crisp closed hi-hat using ultra-high frequency clock setting.',
+      'gb.hihat-open': 'Long-decay open hi-hat.',
+      'gb.cymbal': 'Metallic 7-bit LFSR crash cymbals with long decay panned left.',
+      'gb.clap': 'Crisp hand clap burst.',
+      'gb.cowbell': 'Metallic 7-bit LFSR cowbell ring.',
+      'gb.rimshot': 'Short, clicky rimshot.',
+      'gb.shaker': 'Light noise-based shaker shimmer.',
+      'gb.tom': 'Noise-based tom thump.',
+      'gb.explosion': 'Slow-decaying deep explosion rumble.',
+      'gb.laser': 'Rapid metallic laser sweep.',
+      'gb.rumble': 'Deep, continuous low-frequency noise.',
+      'gb.engine': 'Persistent running engine noise.',
+      'gb.wind': 'Swelling background wind noise.',
+      'gb.pulse-kick': 'Deep square wave kick with a pitch sweep (routes to pulse1).',
+      'gb.pulse-tom': 'Pitch-swept square tom drum (routes to pulse1).',
+      'gb.pulse-snare': 'Tight pitched square snare (routes to pulse1).',
+      'gb.wave-kick': 'Deep sine wave kick (routes to wave).',
+      'gb.powerup': 'Retro power-up arpeggio (sweeps up a major scale rapidly).',
+      'gb.death': 'Retro death fall arpeggio (sweeps down a chromatic/minor scale).',
+      'gb.laser-long': 'Sweeping pitch laser sound (longer decay).'
+    };
+
+    function getStrudelCode(inst, inline = false) {
+      const parts = [];
+      if (inst.channel !== undefined) parts.push(`.channel('${inst.channel}')`);
+      if (inst.duty !== undefined) parts.push(`.duty(${inst.duty})`);
+      if (inst.volume !== undefined) parts.push(`.volume(${inst.volume})`);
+      if (inst.envelope !== undefined) {
+        const env = inst.envelope;
+        parts.push(`.envelope({ initial: ${env.initial}, direction: '${env.direction}', pace: ${env.pace} })`);
+      }
+      if (inst.pitchSweep !== undefined) {
+        const sweep = inst.pitchSweep;
+        parts.push(`.pitchSweep({ rate: ${sweep.rate}, amount: ${sweep.amount} })`);
+      }
+      if (inst.waveTable !== undefined) {
+        if (typeof inst.waveTable === 'string') {
+          parts.push(`.waveTable('${inst.waveTable}')`);
+        } else {
+          parts.push(`.waveTable([${inst.waveTable.join(', ')}])`);
+        }
+      }
+      if (inst.lfsr !== undefined) parts.push(`.lfsr(${inst.lfsr})`);
+      if (inst.frequency !== undefined) {
+        if (typeof inst.frequency === 'number') {
+          parts.push(`.frequency(${inst.frequency})`);
+        } else {
+          parts.push(`.frequency({ shift: ${inst.frequency.shift}, dividing: ${inst.frequency.dividing} })`);
+        }
+      }
+      if (inst.arp !== undefined) {
+        if (Array.isArray(inst.arp)) {
+          parts.push(`.arp([${inst.arp.join(', ')}])`);
+        } else {
+          parts.push(`.arp('${inst.arp}')`);
+        }
+      }
+      if (inst.arpSpeed !== undefined) parts.push(`.arpSpeed(${inst.arpSpeed})`);
+      if (inst.length !== undefined) parts.push(`.length(${inst.length})`);
+      if (inst.pan !== undefined) parts.push(`.pan(${inst.pan})`);
+      if (inst.mute !== undefined) parts.push(`.mute(${inst.mute})`);
+      if (inst.solo !== undefined) parts.push(`.solo(${inst.solo})`);
+      
+      if (inline) {
+        return parts.join('');
+      }
+      return parts.join('\n  ');
+    }
+
+    // Render Instruments dynamically
+    function renderInstruments() {
+      const grid = document.getElementById('instrumentsGrid');
+      if (!grid) return;
+
+      grid.innerHTML = '';
+
+      const categories = window.GBShared ? window.GBShared.groupInstrumentsByCategory(INSTRUMENTS) : {};
+
+      Object.keys(categories).forEach(catName => {
+        const list = categories[catName];
+        if (list.length === 0) return;
+
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'category-group';
+        
+        const title = document.createElement('div');
+        title.className = 'category-title';
+        title.textContent = catName;
+        groupDiv.appendChild(title);
+
+        const cardList = document.createElement('div');
+        cardList.className = 'instrument-list';
+
+        list.forEach(inst => {
+          const card = document.createElement('div');
+          card.className = 'instrument-card';
+
+          const descText = instrumentDescriptions[inst.name] || 'Custom preset config.';
+          const codeChain = getStrudelCode(inst, false);
+          const copyCodeChain = getStrudelCode(inst, true);
+
+          card.innerHTML = `
+            <div class="inst-info" style="display: flex; flex-direction: column; gap: 0.5rem; flex: 1;">
+              <div class="inst-header">
+                <span class="inst-name">${inst.name}</span>
+                <span class="channel-badge badge-${inst.channel}">${inst.channel}</span>
+              </div>
+              <div class="inst-desc" style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">${descText}</div>
+              <pre style="background: rgba(0, 0, 0, 0.4); padding: 0.5rem; border-radius: 6px; font-size: 0.75rem; border: 1px solid var(--glass-border); overflow-x: auto; margin-top: auto; font-family: 'Fira Code', monospace; color: #a5b4fc; text-align: left; white-space: pre-wrap; word-break: break-all;"><code>${codeChain}</code></pre>
+            </div>
+            <div class="inst-actions" style="margin-top: 0.5rem;">
+              <button class="btn-action btn-play-demo" data-inst="${inst.name}">▶ Demo</button>
+              <button class="btn-action btn-copy-code" data-code="${copyCodeChain}">📋 Copy Code</button>
+            </div>
+          `;
+
+          // Hook actions
+          const btnPlay = card.querySelector('.btn-play-demo');
+          btnPlay.addEventListener('click', () => playSynth(inst.name));
+
+          const btnCopy = card.querySelector('.btn-copy-code');
+          btnCopy.addEventListener('click', (e) => copyCode(btnCopy, copyCodeChain));
+
+          cardList.appendChild(card);
+        });
+
+        groupDiv.appendChild(cardList);
+        grid.appendChild(groupDiv);
+      });
+    }
+
+    // Initialize Web Audio and Plugin
+    const btnBoot = document.getElementById('btnBoot');
+    const statusBadge = document.getElementById('statusBadge');
+
+    btnBoot.addEventListener('click', async () => {
+      if (isInitialized) return;
+      
+      try {
+        statusBadge.textContent = 'Booting...';
+        
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        gbNode = await initGBPlugin(audioCtx, {
+          registerSynth: (name, cb) => {
+            synths[name] = cb;
+          },
+          createParams: () => {}
+        });
+
+        statusBadge.textContent = 'Engine Online';
+        statusBadge.classList.add('online');
+        btnBoot.style.display = 'none';
+        isInitialized = true;
+        console.log('guide.html sound engine ready.');
+      } catch (err) {
+        statusBadge.textContent = 'Error';
+        console.error(err);
+        alert('Could not initialize sound engine: ' + err.message);
+      }
+    });
+
+    function playSynth(name) {
+      if (!isInitialized) {
+        alert('Please Boot the Audio Engine first (button at top-right)!');
+        return;
+      }
+
+      const cb = synths[name];
+      if (!cb) return;
+
+      let hz = 440; // Default A4
+      let noteName = 'A4';
+
+      if (name.includes('kick') || name.includes('bass')) {
+        hz = 65.41; // C2
+        noteName = 'C2';
+      } else if (name.includes('hihat') || name.includes('cymbal') || name.includes('shaker')) {
+        hz = 1000; // High pitch for noise hats
+        noteName = 'C7';
+      } else if (name.includes('coin')) {
+        hz = 987.77; // B5
+        noteName = 'B5';
+      } else if (name.includes('jump')) {
+        hz = 130.81; // C3
+        noteName = 'C3';
+      } else if (name.includes('balloon')) {
+        hz = 329.63; // E4
+        noteName = 'E4';
+      } else if (name.includes('bubble')) {
+        hz = 523.25; // C5
+        noteName = 'C5';
+      } else if (name.includes('zap')) {
+        hz = 587.33; // D5
+        noteName = 'D5';
+      } else if (name.includes('teleport')) {
+        hz = 261.63; // C4
+        noteName = 'C4';
+      }
+
+      // Play note
+      cb({ time: audioCtx.currentTime, duration: 0.25 }, { freq: hz, note: noteName });
+    }
+
+    window.copyCode = function(btn, code) {
+      if (window.GBShared) {
+        window.GBShared.copyCodeToClipboard(btn, code);
+      } else {
+        navigator.clipboard.writeText(code).then(() => {
+          const originalText = btn.textContent;
+          btn.textContent = 'Copied!';
+          setTimeout(() => { btn.textContent = originalText; }, 1200);
+        });
+      }
+    };
+
+    // Window Load
+    window.addEventListener('load', () => {
+      renderInstruments();
+    });
+  </script>
+</body>
+</html>

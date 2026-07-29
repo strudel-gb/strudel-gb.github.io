@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>strudel-gb — Local REPL Studio</title>
+  <link rel="stylesheet" href="shared.css">
+  <script src="shared.js"></script>
+  <style>
+    /* REPL-specific layout positioning */
+    strudel-editor {
+      display: none;
+    }
+    
+    body > div:not(.control-bar):not(.sidebar-container) {
+      position: absolute;
+      top: 54px;
+      left: 0;
+      width: 70vw;
+      height: calc(100vh - 54px);
+      box-sizing: border-box;
+      background-color: var(--bg-dark);
+      border-right: 1px solid #1e2030;
+    }
+    
+    .sidebar-container {
+      position: absolute;
+      top: 54px;
+      right: 0;
+      width: 30vw;
+      height: calc(100vh - 54px);
+      background-color: #12131e;
+      border-left: 1px solid #1e2030;
+      display: flex;
+      flex-direction: column;
+      padding: 1.25rem;
+      gap: 1.25rem;
+      box-sizing: border-box;
+      overflow-y: auto;
+      z-index: 100;
+    }
+
+    .shortcuts-help {
+      color: #64748b;
+      font-size: 0.75rem;
+      display: flex;
+      gap: 1rem;
+    }
+
+    .shortcut-tag {
+      background-color: #1e293b;
+      color: #94a3b8;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-family: monospace;
+      font-weight: bold;
+      border: 1px solid #334155;
+    }
+
+    body > div:not(.control-bar):not(.sidebar-container) > .cm-editor {
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Control Bar -->
+  <div class="control-bar">
+    <div style="display: flex; align-items: center;">
+      <div class="logo-container">
+        <h1 class="logo-text">strudel-gb</h1>
+        <div class="logo-badge">Live REPL</div>
+      </div>
+      <nav class="nav-menu">
+        <a href="playground.html" class="nav-link">Playground</a>
+        <a href="repl.html" class="nav-link active">Live REPL</a>
+        <a href="guide.html" class="nav-link">Reference Guide</a>
+        <a href="https://github.com/strudel-gb/strudel-gb.github.io" target="_blank" rel="noopener noreferrer" class="nav-link">GitHub</a>
+      </nav>
+    </div>
+    
+    <div class="btn-group">
+      <select id="sampleSelect" class="sample-select" onchange="loadSample(this.value)" disabled>
+        <option value="" disabled selected>Booting APU...</option>
+        <option value="pulse1_sweep">Pulse 1 Sweep</option>
+        <option value="pulse2_duty">Pulse 2 Duty Cycle</option>
+        <option value="wave_custom">Wave Custom Table</option>
+        <option value="noise_drums">Noise Channel Drums</option>
+        <option value="test_pulse1">Test: Pulse 1 Channel</option>
+        <option value="test_pulse2">Test: Pulse 2 Channel</option>
+        <option value="test_wave">Test: Wave Channel</option>
+        <option value="test_noise">Test: Noise Channel</option>
+        <option value="multi_channel_demo">Multi-Channel Stack</option>
+        <option value="phase3_instruments">Instruments</option>
+        <option value="phase3_tags">Tags & Priority</option>
+        <option value="phase3_arp">Arpeggiator (Faux-Chords)</option>
+        <option value="phase4_autochannels">Smart Auto Routing</option>
+      </select>
+
+
+      <label class="setting-label">
+        Polyphony:
+        <select id="polyphonySelect" class="polyphony-select" onchange="changePolyphony(this.value)">
+          <option value="1" selected>1 (Mono)</option>
+          <option value="2">2 Voices</option>
+          <option value="3">3 Voices</option>
+          <option value="4">4 Voices</option>
+          <option value="5">5 Voices</option>
+          <option value="6">6 Voices</option>
+          <option value="7">7 Voices</option>
+          <option value="8">8 Voices</option>
+          <option value="9">9 Voices</option>
+          <option value="10">10 Voices</option>
+          <option value="11">11 Voices</option>
+          <option value="12">12 Voices</option>
+          <option value="13">13 Voices</option>
+          <option value="14">14 Voices</option>
+          <option value="15">15 Voices</option>
+          <option value="16">16 Voices</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <!-- Embed the official Strudel REPL web component in full screen -->
+  <strudel-editor>
+    <!--
+// Loading Game Boy APU plugin...
+    -->
+  </strudel-editor>
+
+  <!-- Sidebar for Visualizer & Strict Mode Warnings -->
+  <div class="sidebar-container">
+    <div class="sidebar-btn-group">
+      <button class="btn btn-play" id="btnPlay" onclick="playCode()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+        Play Pattern (Ctrl+Enter)
+      </button>
+      <button class="btn btn-stop" id="btnStop" onclick="stopCode()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6 6h12v12H6z"/>
+        </svg>
+        Stop Pattern (Ctrl+.)
+      </button>
+    </div>
+
+    <div class="gb-bezel">
+      <div class="gb-screen">
+        <div class="screen-header">
+          <span>strudel-gb</span>
+          <span id="screenStatus">OFFLINE</span>
+        </div>
+        
+        <div class="screen-content" id="screenDisplay">
+          APU Core Powered Off
+        </div>
+
+        <div class="screen-visualizer" id="screenVisualizer">
+          <div class="viz-bar"></div>
+          <div class="viz-bar"></div>
+          <div class="viz-bar"></div>
+          <div class="viz-bar"></div>
+          <div class="viz-bar"></div>
+          <div class="viz-bar"></div>
+          <div class="viz-bar"></div>
+          <div class="viz-bar"></div>
+          <div class="viz-bar"></div>
+          <div class="viz-bar"></div>
+          <div class="viz-bar"></div>
+          <div class="viz-bar"></div>
+        </div>
+
+        <div class="screen-footer">
+          <span id="activeNote">FREQ: --- Hz</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="gb-bezel" style="flex: none; height: auto;">
+      <div class="gb-screen" style="flex: none; height: auto; min-height: 100px;">
+        <div class="screen-header" style="border-bottom: 1px dashed var(--gb-screen-text); margin-bottom: 6px; padding-bottom: 4px;">
+          <span>CHANNEL ACTIVITY</span>
+          <span style="font-weight: 800; font-size: 0.65rem;">LSDJ MODE</span>
+        </div>
+        <div id="realtimeChannelActivity">
+          <div class="channel-viz-container">
+            <div class="channel-viz-row"><span class="ch-name">P1</span><span class="ch-note">---</span><div class="ch-bar"><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span></div><span class="ch-timbre">Duty 50%</span></div>
+            <div class="channel-viz-row"><span class="ch-name">P2</span><span class="ch-note">---</span><div class="ch-bar"><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span></div><span class="ch-timbre">Duty 50%</span></div>
+            <div class="channel-viz-row"><span class="ch-name">WV</span><span class="ch-note">---</span><div class="ch-bar"><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span></div><span class="ch-timbre">triangle</span></div>
+            <div class="channel-viz-row"><span class="ch-name">NS</span><span class="ch-note">---</span><div class="ch-bar"><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span><span class="ch-block"></span></div><span class="ch-timbre">15-bit</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dashboard-card">
+      <div class="card-title">
+        <span>Hardware Warnings</span>
+      </div>
+      <div class="diagnostic-log" id="diagnosticLog">Waiting for APU boot...</div>
+    </div>
+
+    <footer style="margin-top: auto; padding: 1rem 0 0 0; border-top: 1px dashed var(--glass-border); font-size: 0.75rem; text-align: center;">
+      <div style="margin-bottom: 0.35rem;">
+        strudel-gb plugin designed by <span class="flashy-gold-name">Aurélien Drouet</span> &copy; 2026.
+      </div>
+      <div class="licenses-links" style="font-size: 0.7rem;">
+        <a href="https://github.com/strudel-gb/strudel-gb.github.io" target="_blank" rel="noopener noreferrer">GitHub Repo</a> |
+        Licenses:
+        <a href="LICENSE" target="_blank" rel="noopener noreferrer">strudel-gb (GPL-3.0)</a> |
+        <a href="https://github.com/tidalcycles/strudel/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">strudel (GPL-3.0)</a> |
+        <a href="https://github.com/shamblesides/apu/blob/master/LICENSE" target="_blank" rel="noopener noreferrer">apu (BSD-3-Clause)</a>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Load the official Strudel REPL web component library -->
+  <script type="module" src="https://unpkg.com/@strudel/repl@latest"></script>
+
+  <!-- Load our local Game Boy plugin as an ES module to expose its initializer -->
+  <script type="module">
+    import { initGBPlugin, DEFAULTS, INSTRUMENTS, TAGS } from './strudel-gb-plugin.js';
+    window.initGBPlugin = initGBPlugin;
+    window.GB_DEFAULTS = DEFAULTS;
+    window.GB_INSTRUMENTS = INSTRUMENTS;
+    window.GB_TAGS = TAGS;
+  </script>
+
+  <!-- Trigger helpers using the component API -->
+  <script>
+    function getEditor() {
+      const el = document.querySelector('strudel-editor');
+      return el ? el.editor : null;
+    }
+
+    // Hidden initialization code that loads the worklet and registers the GB synth
+    const loaderCode = `
+try {
+  await (async () => {
+    if (window.gbLoaded) return;
+    const ctx = getAudioContext();
+    window.gbAudioContext = ctx;
+    
+    if (typeof window.initGBPlugin !== 'function') {
+      throw new Error('window.initGBPlugin is not defined on the main thread!');
+    }
+    
+    // Initialize the APU plugin using the main thread's Blob-based installer
+    window.gbNode = await window.initGBPlugin(ctx);
+    
+    if (typeof createParams === 'function') {
+      createParams('channel', 'duty', 'envelope', 'pitchSweep', 'waveTable', 'wave', 'lfsr', 'frequency', 'priority', 'volume', 'length', 'mute', 'solo', 'tags', 'arpSpeed', 'hwArp', 'gbArp');
+    }
+
+    const DEFAULTS = window.GB_DEFAULTS;
+    const INSTRUMENTS = window.GB_INSTRUMENTS;
+    const TAGS = window.GB_TAGS;
+
+    const resolveParams = (params, instrumentDefault = 'gb') => {
+      const resolved = { ...DEFAULTS };
+      const instrument = params.instrument || instrumentDefault;
+      const instSettings = INSTRUMENTS[instrument] || {};
+      Object.assign(resolved, instSettings);
+
+      if (params.tags) {
+        let tagList = [];
+        if (typeof params.tags === 'string') {
+          tagList = params.tags.split(/[\\s,]+/);
+        } else if (Array.isArray(params.tags)) {
+          tagList = params.tags;
+        }
+        for (const tag of tagList) {
+          const cleanTag = tag.trim();
+          if (TAGS[cleanTag]) {
+            Object.assign(resolved, TAGS[cleanTag]);
+          }
+        }
+      }
+
+      const checkKeys = [
+        'channel', 'duty', 'volume', 'length', 'envelope', 'pitchSweep', 
+        'waveTable', 'wave', 'lfsr', 'frequency', 'priority', 'pan', 
+        'mute', 'solo', 'arp', 'arpSpeed'
+      ];
+      if (params.hap && typeof params.hap === 'object') {
+        for (const key of checkKeys) {
+          if (params.hap[key] !== undefined) {
+            resolved[key] = params.hap[key];
+          }
+        }
+      }
+      for (const key of checkKeys) {
+        if (params[key] !== undefined) {
+          resolved[key] = params[key];
+        }
+      }
+      if (resolved.wave !== undefined) {
+        resolved.waveTable = resolved.wave;
+      }
+      if (resolved.waveTable !== undefined) {
+        resolved.waveTable = resolved.waveTable;
+      }
+      return resolved;
+    };
+
+    const registerGBSound = (name, instDefault) => {
+      registerSound(name, (time, value) => {
+        window.lastRawValue = value;
+        const getFreq = (n) => {
+          if (typeof n === 'number') return 440 * Math.pow(2, (n - 69) / 12);
+          if (typeof n !== 'string') return 440;
+          const match = n.match(/^([A-G])([#b]?)(-?\\d+)$/);
+          if (!match) return 440;
+          const offsets = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+          let midi = offsets[match[1]] + (parseInt(match[3], 10) + 1) * 12;
+          if (match[2] === '#') midi += 1;
+          if (match[2] === 'b') midi -= 1;
+          return 440 * Math.pow(2, (midi - 69) / 12);
+        };
+        const freq = value.freq || getFreq(value.note);
+
+        const resolved = resolveParams(value, instDefault);
+        const voiceId = Math.random().toString(36).slice(2);
+
+        const msg = {
+          type: 'schedule',
+          action: 'noteOn',
+          voiceId: voiceId,
+          time: time,
+          freq: freq,
+          channel: resolved.channel,
+          duty: resolved.duty,
+          volume: resolved.volume,
+          length: resolved.length,
+          envelope: resolved.envelope,
+          pitchSweep: resolved.pitchSweep,
+          waveTable: resolved.waveTable || resolved.wave,
+          lfsr: resolved.lfsr,
+          frequency: resolved.frequency,
+          priority: resolved.priority,
+          pan: resolved.pan,
+          mute: resolved.mute,
+          solo: resolved.solo,
+          arp: resolved.arp,
+          arpSpeed: resolved.arpSpeed,
+          duration: value.duration || 0.5
+        };
+        window.lastScheduledNoteOn = msg;
+        window.gbNode.port.postMessage(msg);
+        
+        // Schedule noteOff in the future based on note duration
+        const duration = value.duration || 0.5;
+        window.gbNode.port.postMessage({
+          type: 'schedule',
+          action: 'noteOff',
+          voiceId: voiceId,
+          time: time + duration,
+          channel: resolved.channel || 'pulse1'
+        });
+        
+        // Return a dummy gain node connected to the scheduler
+        const dummy = new GainNode(ctx, { gain: 0 });
+        dummy.stop = (stopTime) => {
+          window.gbNode.port.postMessage({
+            type: 'schedule',
+            action: 'noteOff',
+            voiceId: voiceId,
+            time: stopTime,
+            channel: resolved.channel || 'pulse1'
+          });
+        };
+        return dummy;
+      });
+    };
+
+    Object.keys(INSTRUMENTS).forEach(name => {
+      registerGBSound(name, name);
+    });
+
+    // Dynamic pattern modifier for auto-routing
+    const PatternClass = note().constructor;
+    if (PatternClass && PatternClass.prototype) {
+      const origArp = PatternClass.prototype.arp;
+      PatternClass.prototype.arp = function(val, ...args) {
+        if (typeof val === 'string') {
+          return this.set('arp', val);
+        }
+        if (Array.isArray(val)) {
+          return this.set('arp', val);
+        }
+        if (typeof val === 'number') {
+          return this.set('arp', val);
+        }
+        if (val && typeof val === 'object') {
+          if (typeof val.queryArc === 'function') {
+            try {
+              const haps = val.queryArc(0, 1);
+              if (haps && haps.length > 0) {
+                const parseVal = (v) => {
+                  if (typeof v === 'number') return v;
+                  if (typeof v === 'string') return Number(v);
+                  if (v && typeof v === 'object') {
+                    if (typeof v.note === 'number') return v.note;
+                    if (typeof v.note === 'string') return Number(v.note);
+                    if (typeof v.value === 'number') return v.value;
+                    if (typeof v.value === 'string') return Number(v.value);
+                  }
+                  return NaN;
+                };
+                const offsets = haps.map(h => parseVal(h.value)).filter(n => !isNaN(n));
+                if (offsets.length > 0) {
+                  return this.set('arp', offsets);
+                }
+              }
+            } catch (err) {
+              // fallback
+            }
+          }
+        }
+        if (typeof origArp === 'function') {
+          return origArp.call(this, val, ...args);
+        }
+        return this.set('arp', val);
+      };
+      PatternClass.prototype.hwArp = function(val) { return this.set('arp', val); };
+      PatternClass.prototype.gbArp = function(val) { return this.set('arp', val); };
+      const noteToMidi = (n) => {
+        if (typeof n === 'number') return n;
+        if (typeof n !== 'string') return 60;
+        const match = n.match(/^([A-G])([#b]?)(-?\\d+)$/);
+        if (!match) return 60;
+        const offsets = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+        let midi = offsets[match[1]] + (parseInt(match[3], 10) + 1) * 12;
+        if (match[2] === '#') midi += 1;
+        if (match[2] === 'b') midi -= 1;
+        return midi;
+      };
+
+      PatternClass.prototype.autoChannels = function() {
+        const self = this;
+        return new PatternClass(state => {
+          const events = self.query(state);
+          if (!events || events.length === 0) return events;
+          
+          const sorted = [...events].sort((a, b) => {
+            const aTime = a.whole ? a.whole.begin.valueOf() : 0;
+            const bTime = b.whole ? b.whole.begin.valueOf() : 0;
+            return aTime - bTime;
+          });
+          
+          const occupiedUntil = {
+            pulse1: -1,
+            pulse2: -1,
+            wave: -1,
+            noise: -1
+          };
+          
+          sorted.forEach(event => {
+            if (!event.value || typeof event.value !== 'object') return;
+            
+            const val = { ...event.value };
+            let targetChannel = val.channel;
+            
+            if (!targetChannel) {
+              const inst = val.instrument || 'gb';
+              const instDef = INSTRUMENTS[inst] || {};
+              if (instDef.channel) {
+                targetChannel = instDef.channel;
+              }
+            }
+            
+            if (!targetChannel) {
+              let midi = 60;
+              if (val.note) {
+                midi = noteToMidi(val.note);
+              } else if (val.freq) {
+                midi = Math.round(12 * Math.log2(val.freq / 440) + 69);
+              }
+              
+              const tagsStr = typeof val.tags === 'string' ? val.tags : Array.isArray(val.tags) ? val.tags.join(' ') : '';
+              const isDrums = tagsStr && (tagsStr.includes('kick') || tagsStr.includes('snare') || tagsStr.includes('hihat') || tagsStr.includes('cymbal'));
+              
+              if (isDrums) {
+                targetChannel = 'noise';
+              } else if (midi < 57) {
+                targetChannel = 'wave';
+              } else {
+                const startTime = event.whole ? event.whole.begin.valueOf() : 0;
+                if (occupiedUntil.pulse1 <= startTime) {
+                  targetChannel = 'pulse1';
+                } else if (occupiedUntil.pulse2 <= startTime) {
+                  targetChannel = 'pulse2';
+                } else {
+                  targetChannel = 'pulse1';
+                }
+              }
+            }
+            
+            const startTime = event.whole ? event.whole.begin.valueOf() : 0;
+            const duration = event.whole ? (event.whole.end.valueOf() - event.whole.begin.valueOf()) : 0.5;
+            occupiedUntil[targetChannel] = startTime + duration;
+            
+            val.channel = targetChannel;
+            event.value = val;
+          });
+          
+          return sorted;
+        });
+      };
+    }
+
+    window.gbLoaded = true;
+    console.log('[strudel-gb] Game Boy plugin successfully loaded!');
+    if (typeof window.onGBAPULoaded === 'function') {
+      window.onGBAPULoaded();
+    }
+  })();
+} catch (err) {
+  console.error('[strudel-gb] Loader error:', err.stack || err.message || err);
+}
+silence
+`;
+
+    // Sample Game Boy patterns
+    const SAMPLES = {
+      pulse1_sweep: `// Pulse 1 Pitch Sweep Demo
+// Uses the pitchSweep parameter to slide notes
+note("C4 C4 G4 G4 A4 A4 G4")
+  .s("gb")
+  .channel("pulse1")
+  .duty(25)
+  .pitchSweep({ rate: 2, amount: -2 })
+  .fast(1.5)`,
+
+      pulse2_duty: `// Pulse 2 Duty Cycle Demo
+// Alternates duty cycle for different timbres
+note("E4 G4 B4 A4")
+  .s("gb")
+  .channel("pulse2")
+  .duty("12.5 25 50 75")
+  .fast(2)`,
+
+      wave_custom: `// Custom Wavetable Demo
+// Uses custom shape for the Wave channel
+note("C3 E3 G3 C4")
+  .s("gb")
+  .channel("wave")
+  .wave("sawtooth")
+  .volume(8) // 50% volume
+  .fast(2)`,
+
+      noise_drums: `// Noise Channel Drums Demo
+// Uses short length and different frequencies/lfsr to make percussion
+stack(
+  note("C4").s("gb").channel("noise").lfsr(7).frequency({shift: 4, dividing: 1}).volume(15).fast(2), // kick/snare feel
+  note("C6").s("gb").channel("noise").lfsr(7).frequency({shift: 8, dividing: 2}).volume(6).fast(4) // hi-hat
+)`,
+
+      multi_channel_demo: `// Multi-Channel Stack Demo (Phase 2)
+// Combines Pulse 1, Pulse 2, Wave, and Noise channels simultaneously
+stack(
+  // Pulse 1 Lead
+  note("C5 D5 E5 F5 G5").s("gb").channel("pulse1").duty(25).volume(12).fast(2),
+  
+  // Pulse 2 Harmony
+  note("C4 E4 G4 B4").s("gb").channel("pulse2").duty(50).volume(8).fast(1.5),
+  
+  // Wave Bass
+  note("C2 G2 C3 G2").s("gb").channel("wave").wave("triangle").volume(15).fast(1),
+  
+  // Noise Drums
+  note("C4").s("gb").channel("noise").lfsr(7).frequency({shift: 3, dividing: 1}).volume(10).fast(2)
+)`,
+
+      phase3_instruments: `// Instruments Demo
+// Combines lead, bass, pluck, and pad instruments in a beautiful stack
+stack(
+  // Lead on Pulse 1 (bright timbre)
+  note("C5 E5 G5 A5").s("gb.lead").fast(2),
+  
+  // Bass on Wave (automatically selected by gb.bass)
+  note("C2 G2 C3 F2").s("gb.bass").fast(1),
+  
+  // Pluck on Pulse 1 (short decay)
+  note("E4 G4 C5 G4").s("gb.pluck").fast(3),
+  
+  // Pad on Pulse 2 (slower, ambient chords)
+  note("C4 G4").s("gb.pad").fast(0.5)
+)`,
+
+      phase3_tags: `// Tags & Priority Demo
+// Combines specialized composer tags and overrides them
+stack(
+  // Vibrant chiptune lead with gliss-up sweep
+  note("C4 E4 G4").s("gb.lead").tags("chiptune gliss-up").fast(2),
+  
+  // Smooth wave bass with a sub-octave sine wave
+  note("C2 G2 C3 G2").s("gb.bass").tags("sine-smooth sub-octave").fast(1),
+  
+  // Metallic hi-hat and snare on Noise channel
+  stack(
+    note("C6").s("gb").channel("noise").tags("noise-hihat staccato").fast(4),
+    note("C4").s("gb").channel("noise").tags("noise-snare").fast(2)
+  )
+)`,
+
+      phase3_arp: `// Hardware Arpeggiator (Faux-Chords) Demo
+// Alternates notes rapidly on a single channel to simulate chords (50Hz feel)
+stack(
+  // Major chords on Lead instrument (Pulse 1)
+  note("C4 F4 G4 C4")
+    .s("gb.lead")
+    .arp("0 4 7 12")
+    .arpSpeed(20)
+    .fast(0.5),
+
+  // Minor chords on Pluck instrument (Pulse 2)
+  note("A3 D4 E4 A3")
+    .s("gb.pluck")
+    .arp("0 3 7 12")
+    .arpSpeed(15)
+    .fast(0.5),
+
+  // Octave arpeggio on Wave Bass
+  note("A1 E2")
+     .s("gb.bass")
+     .arp([0, 12])
+     .arpSpeed(12)
+     .fast(0.5)
+)`,
+
+      phase4_autochannels: `// Smart Auto Routing (.autoChannels())
+// No manual channel declarations are used here!
+// Low notes automatically go to Wave. Drums automatically go to Noise.
+// Melodies dynamically cycle between Pulse 1 & Pulse 2!
+stack(
+  // Melody (high notes) -> dynamic routing between Pulse 1 and Pulse 2
+  note("C5 D5 E5 G5 A5").s("gb.lead").fast(2),
+  note("E4 G4 C5 G4").s("gb.pluck").fast(3),
+  
+  // Bassline (low notes) -> automatically routes to Wave channel
+  note("C2 G2 C3 G2").s("gb.bass").fast(1),
+  
+  // Drums -> automatically route to Noise channel
+stack(
+    note("C4").s("gb.kick").fast(2),
+    note("C6").s("gb.hihat").fast(4)
+  )
+)
+.autoChannels()`,
+
+      test_pulse1: `// ==========================================
+// PULSE 1 CHANNEL COMPREHENSIVE TEST SUITE
+// ==========================================
+// To run a test, uncomment its code line (remove the leading '//') and click "Play".
+// Note: Observe the strict mode warnings or visualizer status in the interface.
+
+// [P1-01] Volume Step Test
+// Scope: Verifies volume level configuration from silence (0) to maximum (15).
+// Expected Output: Four notes playing in ascending volume steps: 3, 7, 11, 15.
+// note("C4 C4 C4 C4").s("gb").channel("pulse1").volume("3 7 11 15")
+
+// [P1-02] Speed Modifier Test
+// Scope: Verifies playback speed (.fast) modifier.
+// Expected Output: Four rapid notes played at 4x speed.
+// note("C4 E4 G4 C5").s("gb").channel("pulse1").fast(4)
+
+// [P1-03] Stereo Panning Test
+// Scope: Verifies discrete panning capabilities (Left, Center, Right).
+// Expected Output: Three notes: left speaker, center (stereo), right speaker.
+// note("C4 E4 G4").s("gb").channel("pulse1").pan("-1 0 1")
+
+// [P1-04] Duty Cycle Timbre Test
+// Scope: Verifies the four hardware-supported duty cycles (12.5%, 25%, 50%, 75%).
+// Expected Output: Four notes with distinct square/pulse timbre textures.
+// note("C4 C4 C4 C4").s("gb").channel("pulse1").duty("12.5 25 50 75")
+
+// [P1-05] Upward Pitch Sweep Test
+// Scope: Verifies hardware frequency sweep sliding upwards.
+// Expected Output: Notes sliding upward in pitch at the start of each trigger.
+// note("C4 G4 C5").s("gb").channel("pulse1").pitchSweep({ rate: 2, amount: 4 }).fast(2)
+
+// [P1-06] Downward Pitch Sweep Test
+// Scope: Verifies hardware frequency sweep sliding downwards.
+// Expected Output: Notes sliding downward in pitch at the start of each trigger.
+// note("C4 G4 C5").s("gb").channel("pulse1").pitchSweep({ rate: 2, amount: -4 }).fast(2)
+
+// [P1-07] Snappy Decay Envelope Test
+// Scope: Verifies hardware volume envelope decay settings.
+// Expected Output: Notes starting at full volume (15) and decaying quickly (pace 2).
+// note("C4 E4 G4 C5").s("gb").channel("pulse1").envelope({ initial: 15, direction: "down", pace: 2 })
+
+// [P1-08] Volume Swell (Crescendo) Envelope Test
+// Scope: Verifies hardware volume envelope attack/swell settings.
+// Expected Output: Notes starting silent (0) and swelling to maximum volume (direction "up", pace 4).
+// note("C4 E4 G4 C5").s("gb").channel("pulse1").envelope({ initial: 0, direction: "up", pace: 4 })
+
+// [P1-09] Hardware Sound Length Test
+// Scope: Verifies hardware sound length register limiting duration (0 to 63).
+// Expected Output: Four notes of increasing gated lengths, cut off early by the hardware timer.
+// note("C4 E4 G4 C5").s("gb").channel("pulse1").length("5 15 30 50")
+
+// [P1-10] Built-in Arpeggiator Test
+// Scope: Verifies rapid semitone offset cycle (arp chord simulation).
+// Expected Output: A rapid chiptune chord sound playing a major triad.
+// note("C4").s("gb").channel("pulse1").arp("0 4 7 12").arpSpeed(20)
+
+// [P1-11] Preset Instruments Test
+// Scope: Verifies that pre-defined Pulse 1 instruments load correct settings.
+// Expected Output: Alternating sounds of gb (default), gb.lead (bright), and gb.pluck (staccato).
+// note("C4 E4 G4").s("gb gb.lead gb.pluck").channel("pulse1").fast(2)
+
+// [P1-12] Timbre & Envelope Preset Tags Test
+// Scope: Verifies tag overrides for duty cycle and envelope pace.
+// Expected Output: Reedy nasal staccato sound followed by hollow sustain sound.
+// note("C4 E4").s("gb").channel("pulse1").tags("nasal staccato, hollow sustain").fast(1)
+
+// [P1-13] Mute & Solo Test
+// Scope: Verifies muting/soloing on Pulse 1.
+// Expected Output: Note playing, followed by a silenced note.
+// note("C4 E4").s("gb").channel("pulse1").mute("false true")
+
+// [P1-14] Voice Priority Test
+// Scope: Verifies priority assignment on Pulse 1.
+// Expected Output: Note triggering with custom priority settings.
+// note("C4 E4").s("gb").channel("pulse1").priority("1 10")
+
+// --- Default baseline note (uncommented to ensure code evaluation works as-is) ---
+note("C4").s("gb").channel("pulse1")`,
+
+      test_pulse2: `// ==========================================
+// PULSE 2 CHANNEL COMPREHENSIVE TEST SUITE
+// ==========================================
+// To run a test, uncomment its code line (remove the leading '//') and click "Play".
+
+// [P2-01] Volume Step Test
+// Scope: Verifies volume level configuration from silence (0) to maximum (15) on Pulse 2.
+// Expected Output: Four notes playing in ascending volume steps: 3, 7, 11, 15.
+// note("E4 E4 E4 E4").s("gb").channel("pulse2").volume("3 7 11 15")
+
+// [P2-02] Speed Modifier Test
+// Scope: Verifies playback speed (.fast) on Pulse 2.
+// Expected Output: Four rapid notes played at 3x speed.
+// note("E4 G4 B4 E5").s("gb").channel("pulse2").fast(3)
+
+// [P2-03] Stereo Panning Test
+// Scope: Verifies discrete panning capabilities (Left, Center, Right).
+// Expected Output: Three notes: left speaker, center (stereo), right speaker.
+// note("E4 G4 B4").s("gb").channel("pulse2").pan("-1 0 1")
+
+// [P2-04] Duty Cycle Timbre Test
+// Scope: Verifies the four hardware-supported duty cycles (12.5%, 25%, 50%, 75%).
+// Expected Output: Four notes with distinct square/pulse timbre textures on Pulse 2.
+// note("E4 E4 E4 E4").s("gb").channel("pulse2").duty("12.5 25 50 75")
+
+// [P2-05] Snappy Decay Envelope Test
+// Scope: Verifies hardware volume envelope decay settings.
+// Expected Output: Notes starting at full volume (15) and decaying quickly (pace 2).
+// note("E4 G4 B4 E5").s("gb").channel("pulse2").envelope({ initial: 15, direction: "down", pace: 2 })
+
+// [P2-06] Volume Swell Envelope Test
+// Scope: Verifies hardware volume envelope attack/swell settings.
+// Expected Output: Notes starting silent (0) and swelling in volume (direction "up", pace 4).
+// note("E4 G4 B4 E5").s("gb").channel("pulse2").envelope({ initial: 0, direction: "up", pace: 4 })
+
+// [P2-07] Hardware Sound Length Test
+// Scope: Verifies hardware sound length register limiting duration (0 to 63) on Pulse 2.
+// Expected Output: Short, truncated notes cut off early by the hardware timer.
+// note("E4 G4 B4 E5").s("gb").channel("pulse2").length("5 15 30 50")
+
+// [P2-08] Built-in Arpeggiator Test
+// Scope: Verifies rapid semitone offset cycle (arp chord simulation).
+// Expected Output: A rapid chiptune chord sound playing a minor triad.
+// note("E4").s("gb").channel("pulse2").arp("0 3 7 12").arpSpeed(18)
+
+// [P2-09] Preset Instruments Test
+// Scope: Verifies Pulse 2 instrument defaults (e.g. gb.pad uses Pulse 2).
+// Expected Output: A slow ambient pad note playing on Pulse 2.
+// note("E4").s("gb.pad").channel("pulse2").envelope({ initial: 10, direction: "down", pace: 6 })
+
+// [P2-10] Timbre & Envelope Preset Tags Test
+// Scope: Verifies hollow timbre and staccato tags.
+// Expected Output: Hollow staccato notes.
+// note("E4 G4").s("gb").channel("pulse2").tags("hollow staccato").fast(2)
+
+// [P2-11] Mute & Solo Test
+// Scope: Verifies muting/soloing on Pulse 2.
+// Expected Output: Note playing, followed by a silenced note.
+// note("E4 G4").s("gb").channel("pulse2").mute("false true")
+
+// [P2-12] Hardware Difference / Sweep Exclusion Test
+// Scope: Verifies that Pulse 2 does not support hardware pitch sweeps (which only work on Pulse 1).
+// Expected Output: Plays normal notes with no pitch sweep (pitchSweep configuration has no effect).
+// note("E4 G4").s("gb").channel("pulse2").pitchSweep({ rate: 2, amount: 4 })
+
+// --- Default baseline note (uncommented to ensure code evaluation works as-is) ---
+note("E4").s("gb").channel("pulse2")`,
+
+      test_wave: `// ==========================================
+// WAVE CHANNEL COMPREHENSIVE TEST SUITE
+// ==========================================
+// To run a test, uncomment its code line (remove the leading '//') and click "Play".
+
+// [WV-01] Hardware Discrete Volume Test
+// Scope: Verifies the four hardware discrete wave volume steps (0%, 25%, 50%, 100%).
+// Expected Output: Four notes with decreasing volume levels corresponding to 100% (volume 15), 50% (volume 8), 25% (volume 4), and muted (volume 0).
+// note("C3 C3 C3 C3").s("gb").channel("wave").volume("15 8 4 0")
+
+// [WV-02] Speed Modifier Test
+// Scope: Verifies playback speed (.fast) on Wave.
+// Expected Output: Rapidly played bass run at 4x speed.
+// note("C3 E3 G3 C4").s("gb").channel("wave").fast(4)
+
+// [WV-03] Stereo Panning Test
+// Scope: Verifies discrete panning capabilities (Left, Center, Right).
+// Expected Output: Three notes: left speaker, center (stereo), right speaker.
+// note("C3 E3 G3").s("gb").channel("wave").pan("-1 0 1")
+
+// [WV-04] Standard Shape Wavetable Test
+// Scope: Verifies built-in wavetable shape selections.
+// Expected Output: Four notes switching between triangle, sawtooth, square, and sine waves.
+// note("C3 C3 C3 C3").s("gb").channel("wave").wave("triangle sawtooth square sine").volume(8)
+
+// [WV-05] Custom Hexadecimal Wavetable Test
+// Scope: Verifies custom 32-character hex wavetable string (each digit 0-F represent 4-bit sample).
+// Expected Output: Gritty custom timbre note playing (saw-like/stepped ramp shape).
+// note("C3").s("gb").channel("wave").wave("0123456789ABCDEFFEDCBA9876543210").volume(15)
+
+// [WV-06] Custom Array Wavetable Test
+// Scope: Verifies custom wavetable defined as an array of 32 integers (0-15).
+// Expected Output: A custom timbre note playing (triangle waveform).
+// note("C3").s("gb").channel("wave").wave([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0]).volume(8)
+
+// [WV-07] Hardware Sound Length Test
+// Scope: Verifies hardware sound length register for Wave (0 to 255).
+// Expected Output: Short, truncated bass notes of increasing lengths.
+// note("C3 E3 G3 C4").s("gb").channel("wave").length("20 40 80 160")
+
+// [WV-08] Built-in Arpeggiator Test
+// Scope: Verifies arpeggiator on the Wave channel.
+// Expected Output: A rapid minor triad bass chord.
+// note("C3").s("gb").channel("wave").arp("0 3 7").arpSpeed(12).volume(8)
+
+// [WV-09] Preset Instruments Test
+// Scope: Verifies Wave instrument presets: gb.bass, gb.sub-bass, gb.triangle, gb.organ, gb.voice.
+// Expected Output: Five notes playing with varying bass instruments.
+// note("C3 C3 C3 C3 C3").s("gb.bass gb.sub-bass gb.triangle gb.organ gb.voice").channel("wave").fast(2)
+
+// [WV-10] Preset Tags Test
+// Scope: Verifies wave-specific tags: sine-smooth, tri-soft, saw-bright, pulse-wave, digi-buzzy, sub-octave.
+// Expected Output: Six notes morphing from smooth sine to buzzy, and ending with sub-bass.
+// note("C3 C3 C3 C3 C3 C3").s("gb").channel("wave").tags("sine-smooth, tri-soft, saw-bright, pulse-wave, digi-buzzy, sub-octave").fast(2)
+
+// [WV-11] Mute & Solo Test
+// Scope: Verifies muting/soloing on Wave channel.
+// Expected Output: Note playing, followed by a silenced note.
+// note("C3 E3").s("gb").channel("wave").mute("false true")
+
+// --- Default baseline note (uncommented to ensure code evaluation works as-is) ---
+note("C3").s("gb").channel("wave").volume(8)`,
+
+      test_noise: `// ==========================================
+// NOISE CHANNEL COMPREHENSIVE TEST SUITE
+// ==========================================
+// To run a test, uncomment its code line (remove the leading '//') and click "Play".
+
+// [NS-01] Volume Step Test
+// Scope: Verifies volume level configuration from silence (0) to maximum (15) on noise.
+// Expected Output: Four noise hits playing in ascending volume steps: 3, 7, 11, 15.
+// note("C4 C4 C4 C4").s("gb").channel("noise").volume("3 7 11 15")
+
+// [NS-02] Speed Modifier Test
+// Scope: Verifies playback speed (.fast) on Noise.
+// Expected Output: Four rapid noise bursts at 4x speed.
+// note("C4 C4 C4 C4").s("gb").channel("noise").fast(4)
+
+// [NS-03] Stereo Panning Test
+// Scope: Verifies discrete panning capabilities (Left, Center, Right).
+// Expected Output: Three noise hits: left speaker, center (stereo), right speaker.
+// note("C4 C4 C4").s("gb").channel("noise").pan("-1 0 1")
+
+// [NS-04] LFSR Register Width (Tonal vs White Noise) Test
+// Scope: Verifies the two shift register widths: 15-bit (white noise) and 7-bit (metallic ringing).
+// Expected Output: Alternating between broad white noise and metallic robotic tone.
+// note("C4 C4 C4 C4").s("gb").channel("noise").lfsr("15 7 15 7")
+
+// [NS-05] Frequency Clock Divider Test (Numeric Value)
+// Scope: Verifies noise generator frequency clock control using raw byte values.
+// Expected Output: Four noise hits starting low/coarse and getting progressively higher/finer in pitch.
+// note("C4 C4 C4 C4").s("gb").channel("noise").frequency("0x70 0x50 0x30 0x10").fast(2)
+
+// [NS-06] Frequency Clock Divider Test (Object Value)
+// Scope: Verifies noise generator frequency clock control using shift/dividing parameters.
+// Expected Output: Four noise hits with distinct frequency shift registers.
+// note("C4 C4 C4 C4").s("gb").channel("noise").frequency({ shift: "8 6 4 2", dividing: 1 }).fast(2)
+
+// [NS-07] Snappy Decay Envelope Test
+// Scope: Verifies hardware volume envelope decay settings.
+// Expected Output: Noise hits starting at full volume (15) and decaying quickly (pace 2).
+// note("C4 C4 C4 C4").s("gb").channel("noise").envelope({ initial: 15, direction: "down", pace: 2 })
+
+// [NS-08] Swell Envelope Test
+// Scope: Verifies hardware volume envelope attack/swell settings.
+// Expected Output: Noise hits fading in (swell).
+// note("C4 C4 C4 C4").s("gb").channel("noise").envelope({ initial: 0, direction: "up", pace: 4 })
+
+// [NS-09] Hardware Sound Length Test
+// Scope: Verifies hardware sound length register limiting duration (0 to 63) on Noise.
+// Expected Output: Noise hits cut off early by the hardware timer.
+// note("C4 C4 C4 C4").s("gb").channel("noise").length("5 15 30 50")
+
+// [NS-10] Noise Instruments Test
+// Scope: Verifies noise-specific instruments: gb.kick, gb.snare, gb.hihat, gb.cymbal, gb.clap, gb.cowbell, gb.explosion.
+// Expected Output: A sequence of drums and effects.
+// note("C4 C4 C4 C4 C4 C4 C4").s("gb.kick gb.snare gb.hihat gb.cymbal gb.clap gb.cowbell gb.explosion").channel("noise").fast(2)
+
+// [NS-11] Noise Preset Tags Test
+// Scope: Verifies noise tags: noise-kick, noise-snare, noise-hihat, staccato, sustain.
+// Expected Output: Noise drum hits using tags.
+// note("C4 C4 C4 C4").s("gb").channel("noise").tags("noise-kick, noise-snare, noise-hihat, staccato").fast(2)
+
+// [NS-12] Mute & Solo Test
+// Scope: Verifies muting/soloing on Noise channel.
+// Expected Output: Noise hit playing, followed by a silenced hit.
+// note("C4 C4").s("gb").channel("noise").mute("false true")
+
+// --- Default baseline note (uncommented to ensure code evaluation works as-is) ---
+note("C4").s("gb").channel("noise").volume(8)`
+    };
+
+    const screenDisplay = document.getElementById('screenDisplay');
+    const screenStatus = document.getElementById('screenStatus');
+    const activeNoteLabel = document.getElementById('activeNote');
+    const diagnosticLog = document.getElementById('diagnosticLog');
+    const vizBars = document.querySelectorAll('.viz-bar');
+
+    function log(message) {
+      if (diagnosticLog) {
+        diagnosticLog.innerHTML += '\n' + message;
+        diagnosticLog.scrollTop = diagnosticLog.scrollHeight;
+      }
+    }
+
+    function logWarning(message) {
+      if (diagnosticLog) {
+        diagnosticLog.innerHTML += '\n<span style="color: #f87171; font-weight: bold;">[STRICT WARNING]</span> <span style="color: #fca5a5;">' + message + '</span>';
+        diagnosticLog.scrollTop = diagnosticLog.scrollHeight;
+      }
+    }
+
+    // Update LCD Screen volume bars and the Real-time activity card based on APU state
+    function updateVisualizerUI(channels) {
+      if (window.GBShared) {
+        window.GBShared.updateVisualizerBars(channels, vizBars);
+        window.GBShared.updateRealtimeChannelActivity(channels);
+      }
+    }
+
+    function updateRealtimeChannelActivity(channels) {
+      if (window.GBShared) {
+        window.GBShared.updateRealtimeChannelActivity(channels);
+      }
+    }
+
+    function loadSample(key) {
+      const ed = getEditor();
+      if (ed && SAMPLES[key]) {
+        ed.setCode(SAMPLES[key]);
+      }
+    }
+
+
+    async function changePolyphony(value) {
+      const size = parseInt(value, 10);
+      if (window.gbNode && typeof window.gbNode.init === 'function') {
+        await window.gbNode.init(size);
+        console.log('[strudel-gb] Polyphony pool size changed to:', size);
+      }
+    }
+
+    // Define callback when background APU loader finishes
+    window.onGBAPULoaded = () => {
+      console.log('[strudel-gb] Game Boy APU registered. Prepopulating default pattern...');
+      
+      // Update UI elements for ready state
+      if (screenStatus) screenStatus.textContent = 'ONLINE';
+      if (screenDisplay) screenDisplay.innerHTML = 'strudel-gb APU<br>System Ready<br>Play pattern code!';
+      if (diagnosticLog) diagnosticLog.innerHTML = 'Game Boy APU Worklet booted successfully!';
+      
+
+
+      if (window.gbNode) {
+        window.gbNode.port.addEventListener('message', (e) => {
+          if (e.data.type === 'visualizerState') {
+            updateVisualizerUI(e.data.channels);
+          } else if (e.data.type === 'strictWarning') {
+            logWarning(e.data.message);
+          }
+        });
+        window.gbNode.port.start();
+      }
+
+      const sampleSelect = document.getElementById('sampleSelect');
+      if (sampleSelect) {
+        sampleSelect.disabled = false;
+        sampleSelect.options[0].textContent = "Load Sample...";
+      }
+      const ed = getEditor();
+      if (ed) {
+        ed.setCode(`// Compose your Game Boy pattern below
+note("C4 G4 C5 E5 G5 C5 G4 C4")
+  .s("gb")
+  .fast(3)`);
+      }
+    };
+
+    // Poller to initialize the plugin silently in the background once the editor is ready
+    const initInterval = setInterval(() => {
+      const ed = getEditor();
+      if (ed && typeof window.initGBPlugin === 'function') {
+        clearInterval(initInterval);
+        console.log('[strudel-gb] Editor instance and initGBPlugin detected. Executing background registration...');
+        ed.setCode(loaderCode);
+        ed.evaluate();
+      }
+    }, 100);
+
+    // Global user interaction triggers to unlock AudioContext
+    const resumeAudio = () => {
+      if (window.gbAudioContext && window.gbAudioContext.state === 'suspended') {
+        window.gbAudioContext.resume().then(() => {
+          console.log('[strudel-gb] AudioContext resumed via user interaction.');
+        });
+      }
+    };
+    const stopAllChannels = () => {
+      if (window.gbNode) {
+        ['pulse1', 'pulse2', 'wave', 'noise'].forEach(channel => {
+          window.gbNode.port.postMessage({
+            type: 'schedule',
+            action: 'noteOff',
+            time: window.gbAudioContext ? window.gbAudioContext.currentTime : 0,
+            channel: channel
+          });
+        });
+      }
+      if (window.GBShared) {
+        window.GBShared.resetVisualizerUI('realtimeChannelActivity', vizBars);
+      }
+      if (screenDisplay) screenDisplay.innerHTML = 'strudel-gb APU<br>System Ready<br>Playback Stopped';
+      if (activeNoteLabel) activeNoteLabel.textContent = 'FREQ: --- Hz';
+    };
+
+    window.addEventListener('click', resumeAudio);
+    window.addEventListener('keydown', (e) => {
+      resumeAudio();
+      // Intercept Ctrl+. to stop audio instantly
+      if (e.ctrlKey && e.key === '.') {
+        stopAllChannels();
+      }
+    });
+
+    function playCode() {
+      resumeAudio();
+      const ed = getEditor();
+      if (ed) {
+        ed.evaluate();
+      } else {
+        console.warn('Strudel editor is initializing, please wait...');
+      }
+    }
+
+    function stopCode() {
+      stopAllChannels();
+      const ed = getEditor();
+      if (ed) {
+        ed.stop();
+      } else {
+        console.warn('Strudel editor is initializing, please wait...');
+      }
+    }
+  </script>
+
+</body>
+</html>

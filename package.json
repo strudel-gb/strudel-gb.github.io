@@ -1,0 +1,44 @@
+{
+  "name": "strudel-gb",
+  "version": "0.1.0",
+  "description": "Game Boy APU integration plugin for Strudel Live Coding",
+  "main": "strudel-gb-plugin.js",
+  "type": "module",
+  "homepage": "https://strudel-gb.github.io",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/strudel-gb/strudel-gb.github.io.git"
+  },
+  "bugs": {
+    "url": "https://github.com/strudel-gb/strudel-gb.github.io/issues"
+  },
+  "scripts": {
+    "start": "npx -y live-server --port=8080 --cors",
+    "dev": "npx -y live-server --port=8080 --cors",
+    "build": "node build.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui"
+  },
+  "keywords": [
+    "strudel",
+    "gameboy",
+    "apu",
+    "chiptune",
+    "livecoding",
+    "music",
+    "webaudio"
+  ],
+  "author": "Aurélien Drouet",
+  "license": "GPL-3.0-or-later",
+  "dependencies": {
+    "apu": "^0.2.32"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.61.1",
+    "eslint": "^10.6.0",
+    "globals": "^17.7.0"
+  }
+}
