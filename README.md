@@ -27,17 +27,23 @@ A high-performance Game Boy APU synthesis plugin for **[Strudel](https://strudel
 
 ## Project Structure
 
-* `gb-processor.js`: The `AudioWorkletProcessor` running on the audio thread. Hosts the WASM APU and schedules register writes with sub-block accuracy.
-* `strudel-gb-plugin.js`: Main-thread plugin that integrates with Strudel's pattern scheduler and registers the `'gb'` synth family.
-* `build.js`: Bundling script that compiles the WASM binary and templates single-file JS assets.
-* `index.html`, `playground.html`, `repl.html`, `guide.html`: Web application portals.
-* `REFERENCE.md`: Complete API documentation of register parameters, presets, and composition recipes.
+| Path | Role |
+| --- | --- |
+| `build.js` | **Source of truth.** Extracts the WASM binary from the `apu` package and generates the two runtime files below from inline templates. Presets (`INSTRUMENTS`), tags (`TAGS`) and `DEFAULTS` live here. |
+| `gb-processor.js` | *Generated.* The `AudioWorkletProcessor` running on the audio thread. Hosts the WASM APU and schedules register writes with sub-block accuracy. |
+| `strudel-gb-plugin.js` | *Generated.* Main-thread plugin (`initGBPlugin`, `GBNodePool`) that integrates with Strudel's pattern scheduler and registers the `gb` synth family. |
+| `index.html`, `playground.html`, `repl.html`, `guide.html` | Web application portals, served directly from the repo root. |
+| `shared.js`, `shared.css` | Cross-page helpers: instrument categorisation, formatting, visualizers. |
+| `tests/` | Playwright end-to-end suites driving the real pages in Chromium. |
+| `REFERENCE.md` | Complete API documentation of register parameters, presets, and composition recipes. |
+
+> ⚠️ `gb-processor.js` and `strudel-gb-plugin.js` are **auto-generated and committed**. Edit `build.js` and re-run `npm run build` — direct edits are overwritten.
 
 ---
 
 ## Quick Start (Local Development)
 
-1. Ensure you have [Node.js](https://nodejs.org) installed.
+1. Ensure you have [Node.js](https://nodejs.org) installed (CI uses Node 20).
 2. Install dependencies:
    ```bash
    npm install
@@ -47,6 +53,35 @@ A high-performance Game Boy APU synthesis plugin for **[Strudel](https://strudel
    npm run dev
    ```
 4. Open `http://localhost:8080` in your web browser.
+
+### Available Scripts
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` / `npm start` | Serve the site on `http://localhost:8080` with CORS enabled. |
+| `npm run build` | Regenerate `gb-processor.js` and `strudel-gb-plugin.js` from `build.js`. Requires `npm install` first (the WASM core is read from `node_modules/apu`). |
+| `npm run lint` / `npm run lint:fix` | ESLint over the hand-written sources (the two generated files are ignored). |
+| `npm test` | Run the Playwright suites. The dev server is started automatically. |
+| `npm run test:ui` | Playwright UI mode for interactive debugging. |
+
+### Testing
+
+End-to-end tests live in `tests/` and exercise the real pages in Chromium — channel suites for
+Pulse 1, Pulse 2, Wave and Noise, plus the REPL studio, hardware playground and developer tools.
+They drive the Strudel editor programmatically and assert on visualizer state and the absence of
+console errors.
+
+```bash
+npm test                            # everything
+npx playwright test tests/wave-suite.spec.js   # a single suite
+```
+
+### Deployment
+
+Pushes to `main` trigger `.github/workflows/deploy.yml`, which installs dependencies, runs
+`npm run build`, and publishes the repository root to GitHub Pages. There is no bundling step and
+no `dist/` directory — what is in the repo is what is served. Commit the regenerated files
+alongside any `build.js` change.
 
 ---
 
@@ -118,10 +153,40 @@ stack(
 
 ---
 
+## How It Works
+
+```
+Strudel pattern  ──►  strudel-gb-plugin.js        ──►  gb-processor.js        ──►  WASM APU
+(main thread)         GBNodePool: 1–16 worklet         AudioWorkletProcessor:      gb_sound_w()
+                      nodes, voiceId routing,          time-sorted event queue,    NR10–NR44,
+                      preset/tag resolution            drained per 128-sample      Wave RAM,
+                                                       block (~2.9 ms)             NR51 panning
+```
+
+* **Presets and tags** (`INSTRUMENTS`, `TAGS`, `DEFAULTS`) are resolved on the main thread into a flat set of hardware parameters, then sent as a scheduled message with a `voiceId`.
+* **Polyphony** is emulated by pooling worklet nodes; each note is routed round-robin and its `noteOff` is delivered back to the same node.
+* **Strict Game Boy mode** is enabled automatically for a pool size of 1 and reports polyphony and frequency-range violations as console warnings, without altering playback.
+* The processor also mirrors hardware state in JavaScript to drive the built-in arpeggiator and the real-time channel visualizers.
+
+---
+
+## Contributing
+
+1. Make changes in `build.js` (audio/plugin behaviour, presets, tags) or in the HTML/CSS/`shared.js` for UI work.
+2. Run `npm run build` if you touched `build.js`, then `npm run lint` and `npm test`.
+3. Update `REFERENCE.md` for any new or changed parameter, preset, or tag.
+4. Commit the regenerated `gb-processor.js` / `strudel-gb-plugin.js` together with your `build.js` change.
+
+Note that `repl.html` and `playground.html` carry their own copies of the parameter-resolution logic; changes to that logic in `build.js` generally need to be mirrored there.
+
+---
+
 ## Documentation & References
 
 * **[REFERENCE.md](REFERENCE.md)**: Full API parameters, channel definitions, and preset list.
-* **[GameBoy APU Instrument Presets.md](GameBoy%20APU%20Instrument%20Presets.md)**: Hardware register specs and sound synthesis references.
+* **[CLAUDE.md](CLAUDE.md)**: Repository guide for AI coding assistants — build pipeline, architecture, and gotchas.
+* **[Interactive Reference Guide](https://strudel-gb.github.io/guide.html)**: Preset catalog with audio previews.
+* **[Pan Docs — Game Boy Sound Controller](https://gbdev.io/pandocs/Audio.html)**: Hardware register specifications used by this emulation.
 
 ---
 
