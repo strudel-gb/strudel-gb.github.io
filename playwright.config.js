@@ -1,7 +1,13 @@
+import os from 'node:os';
+import path from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
+  // Keep artefacts out of the served directory: the dev server watches the
+  // project root and would reload the page (wiping the audio probe and the
+  // running pattern) the moment a test wrote a trace or error context.
+  outputDir: path.join(os.tmpdir(), 'strudel-gb-playwright'),
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

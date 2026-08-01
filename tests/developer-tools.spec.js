@@ -8,9 +8,11 @@ test.describe('strudel-gb Phase 6 Developer & Debugging Tools', () => {
 
     await page.locator('.piano-key[data-note="C4"]').dispatchEvent('mousedown');
 
-    const activityGrid = page.locator('#realtimeChannelActivity');
-    await expect(activityGrid).toContainText('P1');
-    await expect(activityGrid).toContainText('C4');
+    // 'P1' is a static label in the markup, so asserting on it proves nothing.
+    // Assert on the row's live cells instead.
+    const p1Row = page.locator('#realtimeChannelActivity .channel-viz-row').first();
+    await expect(p1Row.locator('.ch-note')).toHaveText('C4', { timeout: 10000 });
+    await expect(p1Row.locator('.ch-block.active').first()).toBeVisible({ timeout: 10000 });
 
     await page.locator('.piano-key[data-note="C4"]').dispatchEvent('mouseup');
   });
@@ -29,8 +31,11 @@ note("C4").s("gb").pan(0.5).freq(20)`);
 
     await page.locator('#btnPlay').click();
 
-    const activityGrid = page.locator('#realtimeChannelActivity');
-    await expect(activityGrid).toContainText('P1', { timeout: 10000 });
+    // The P1 row must show a live note and a lit volume bar, not just its
+    // hard-coded 'P1' label.
+    const p1Row = page.locator('#realtimeChannelActivity .channel-viz-row').first();
+    await expect(p1Row.locator('.ch-note')).not.toHaveText('---', { timeout: 10000 });
+    await expect(p1Row.locator('.ch-block.active').first()).toBeVisible({ timeout: 10000 });
 
     const log = page.locator('#diagnosticLog');
     await expect(log).toContainText('STRICT WARNING', { timeout: 10000 });

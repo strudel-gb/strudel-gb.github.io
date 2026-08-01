@@ -15,7 +15,8 @@ test.describe('strudel-gb POC UI and Audio Context', () => {
   });
 
   test('should boot the APU and transition to ready state', async ({ page }) => {
-    const bootOverlay = page.locator('#bootOverlay');
+    // NB: an earlier #bootOverlay element no longer exists in playground.html;
+    // boot completion is observable through the status badge and screen.
     const badgeStatus = page.locator('#badgeStatus');
     const screenStatus = page.locator('#screenStatus');
     const screenDisplay = page.locator('#screenDisplay');
@@ -23,15 +24,16 @@ test.describe('strudel-gb POC UI and Audio Context', () => {
 
     await btnBoot.click();
 
-    await expect(bootOverlay).toHaveClass(/hidden/);
-    await expect(badgeStatus).toHaveText('Online');
+    await expect(badgeStatus).toHaveText('Engine Online');
     await expect(badgeStatus).toHaveClass(/online/);
     await expect(screenStatus).toHaveText('ONLINE');
     await expect(screenDisplay).toContainText('System Ready');
   });
 
   test('should update screen and log when playing a key', async ({ page }) => {
+    // Keys pressed before boot completes are ignored, so wait for ONLINE.
     await page.locator('#btnBoot').click();
+    await expect(page.locator('#screenStatus')).toContainText('ONLINE');
 
     const keyC4 = page.locator('.piano-key[data-note="C4"]');
     await keyC4.click();
@@ -46,6 +48,7 @@ test.describe('strudel-gb POC UI and Audio Context', () => {
 
   test('should scroll the octave and update key notes', async ({ page }) => {
     await page.locator('#btnBoot').click();
+    await expect(page.locator('#screenStatus')).toContainText('ONLINE');
 
     await page.locator('#btnOctaveUp').click();
     await expect(page.locator('#octaveDisplay')).toHaveText('Octaves: 5 & 6');

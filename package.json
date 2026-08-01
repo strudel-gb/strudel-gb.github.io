@@ -13,8 +13,8 @@
     "url": "https://github.com/strudel-gb/strudel-gb.github.io/issues"
   },
   "scripts": {
-    "start": "npx -y live-server --port=8080 --cors",
-    "dev": "npx -y live-server --port=8080 --cors",
+    "start": "npx -y live-server --port=8080 --cors --ignore=test-results,playwright-report,blob-report",
+    "dev": "npx -y live-server --port=8080 --cors --ignore=test-results,playwright-report,blob-report",
     "build": "node build.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
