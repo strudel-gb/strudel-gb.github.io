@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>strudel-gb | Terms of Use</title>
+  <meta name="description" content="Terms of use, disclaimers and trademark notices for the strudel-gb Game Boy APU synthesis plugin and website.">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="shared.css">
+  <script src="shared.js"></script>
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --bg-card: rgba(17, 24, 39, 0.6);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --accent: #6366f1;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image:
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(244, 63, 94, 0.08) 0px, transparent 50%);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      margin: 0;
+    }
+
+    .container {
+      max-width: 860px;
+      margin: 2.5rem auto;
+      padding: 0 2rem;
+      width: 100%;
+      flex: 1;
+    }
+
+    .nav-menu { display: flex; gap: 1.5rem; align-items: center; }
+
+    .nav-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      position: relative;
+      padding: 0.25rem 0;
+    }
+    .nav-link:hover { color: #fff; }
+    .nav-link.active { color: #818cf8; }
+    .nav-link.active::after {
+      content: '';
+      position: absolute;
+      bottom: -6px;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: #818cf8;
+      border-radius: 2px;
+    }
+
+    .page-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 2.25rem;
+      letter-spacing: -0.03em;
+      margin: 0 0 0.4rem 0;
+      background: linear-gradient(135deg, #a5b4fc 0%, #6366f1 60%, #f43f5e 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: inline-block;
+    }
+
+    .updated {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-bottom: 2rem;
+    }
+
+    section {
+      background: var(--bg-card);
+      border: 1px solid var(--glass-border);
+      border-radius: 14px;
+      padding: 1.5rem 1.75rem;
+      margin-bottom: 1.25rem;
+      backdrop-filter: blur(10px);
+    }
+
+    section h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin: 0 0 0.85rem 0;
+      color: #c7d2fe;
+      display: flex;
+      align-items: baseline;
+      gap: 0.6rem;
+    }
+
+    section h2 .num {
+      font-family: 'Fira Code', monospace;
+      font-size: 0.8rem;
+      color: #6366f1;
+      font-weight: 600;
+    }
+
+    p, li { line-height: 1.7; color: #d1d5db; font-size: 0.95rem; }
+    p { margin: 0 0 0.9rem 0; }
+    p:last-child, ul:last-child { margin-bottom: 0; }
+    ul { margin: 0 0 0.9rem 0; padding-left: 1.25rem; }
+    li { margin-bottom: 0.4rem; }
+
+    a { color: #93c5fd; text-decoration: none; }
+    a:hover { color: #f59e0b; text-decoration: underline; }
+
+    code {
+      font-family: 'Fira Code', monospace;
+      font-size: 0.85em;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--glass-border);
+      border-radius: 4px;
+      padding: 0.1rem 0.35rem;
+    }
+
+    .callout {
+      display: flex;
+      gap: 0.9rem;
+      align-items: flex-start;
+      border-radius: 12px;
+      padding: 1.1rem 1.3rem;
+      margin-bottom: 1.25rem;
+      border: 1px solid;
+    }
+    .callout .icon { font-size: 1.3rem; line-height: 1.4; }
+    .callout p { margin: 0; font-size: 0.92rem; }
+    .callout.warn {
+      background: rgba(245, 158, 11, 0.08);
+      border-color: rgba(245, 158, 11, 0.35);
+    }
+    .callout.info {
+      background: rgba(99, 102, 241, 0.08);
+      border-color: rgba(99, 102, 241, 0.3);
+    }
+
+    .emphasis { color: #fef3c7; font-weight: 600; }
+
+    @media (max-width: 640px) {
+      .container { padding: 0 1.1rem; margin: 1.5rem auto; }
+      .page-title { font-size: 1.7rem; }
+      section { padding: 1.2rem 1.1rem; }
+      .nav-menu { gap: 0.9rem; flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="control-bar" style="position: sticky; top: 0;">
+    <div style="display: flex; align-items: center;">
+      <div class="logo-container">
+        <h1 class="logo-text">strudel-gb</h1>
+        <div class="logo-badge">Terms of Use</div>
+      </div>
+      <nav class="nav-menu">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="playground.html" class="nav-link">Playground</a>
+        <a href="repl.html" class="nav-link">Live REPL</a>
+        <a href="guide.html" class="nav-link">Reference Guide</a>
+        <a href="terms.html" class="nav-link active">Terms</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <h1 class="page-title">Terms of Use</h1>
+    <div class="updated">Last updated: 1 August 2026 &middot; Applies to <code>strudel-gb.github.io</code> and the <code>strudel-gb</code> software.</div>
+
+    <div class="callout warn">
+      <span class="icon">🔊</span>
+      <p>
+        <span class="emphasis">Volume warning.</span> This is a sound synthesiser. It can produce sudden, loud,
+        high-frequency and repetitive tones, including at full output level. Lower your system volume before
+        you start, and be especially careful with headphones. Prolonged exposure to loud audio can damage your hearing.
+      </p>
+    </div>
+
+    <section>
+      <h2><span class="num">1</span> Acceptance</h2>
+      <p>
+        By using this website or the <code>strudel-gb</code> software (together, the &ldquo;Project&rdquo;), you agree to
+        these terms. If you do not agree with them, please do not use the Project.
+      </p>
+      <p>
+        The Project is a free, non-commercial, open-source hobby project. It is provided as-is by an individual,
+        with no service commitment of any kind, and may be changed, broken or taken offline at any time without notice.
+      </p>
+    </section>
+
+    <section>
+      <h2><span class="num">2</span> No affiliation &amp; trademarks</h2>
+      <p>
+        <span class="emphasis">This Project is not affiliated with, endorsed by, sponsored by or associated with
+        Nintendo Co., Ltd. or any of its subsidiaries or affiliates.</span>
+      </p>
+      <p>
+        &ldquo;Game Boy&rdquo;, &ldquo;Nintendo&rdquo; and all related names, logos and product names are trademarks
+        of their respective owners. They are used here <strong>only descriptively</strong>, to identify the historic
+        audio hardware whose behaviour this software emulates. No claim of ownership over any third-party trademark
+        is made, and no trademark owner has reviewed, approved or supported this Project.
+      </p>
+      <p>
+        Likewise, this Project is an independent work and does not represent the views of, and is not published on
+        behalf of, the author's employer or any organisation the author is affiliated with.
+      </p>
+    </section>
+
+    <section>
+      <h2><span class="num">3</span> Emulation &amp; original content</h2>
+      <p>
+        This software is an original re-implementation of publicly documented audio hardware behaviour. It contains
+        <strong>no copyrighted ROM, BIOS, firmware, game data or audio assets</strong> from any commercial product,
+        and it neither includes, distributes, nor helps you obtain any such material.
+      </p>
+      <p>
+        You are responsible for ensuring that whatever you create, load or distribute using the Project complies with
+        the law and with any third-party rights, including copyright in any melody or recording you reproduce.
+      </p>
+    </section>
+
+    <section>
+      <h2><span class="num">4</span> Licence</h2>
+      <p>
+        The <code>strudel-gb</code> source code is licensed under the
+        <a href="LICENSE" target="_blank" rel="noopener noreferrer">GNU General Public License v3.0 or later</a>.
+        Your rights to use, modify and redistribute the code are granted by that licence; nothing on this page
+        restricts or replaces it. Where these terms and the GPL conflict, the GPL prevails for the software itself.
+      </p>
+      <p>
+        The Project builds on third-party software under their own licences, including
+        <a href="https://github.com/tidalcycles/strudel" target="_blank" rel="noopener noreferrer">Strudel</a> (GPL-3.0)
+        and <a href="https://github.com/shamblesides/apu" target="_blank" rel="noopener noreferrer">apu</a> (BSD-3-Clause).
+      </p>
+    </section>
+
+    <section>
+      <h2><span class="num">5</span> No warranty</h2>
+      <p>
+        <span class="emphasis">The Project is provided &ldquo;as is&rdquo; and &ldquo;as available&rdquo;, without
+        warranty of any kind</span>, express or implied, including but not limited to warranties of merchantability,
+        fitness for a particular purpose, accuracy, or non-infringement. The author does not warrant that the Project
+        will be uninterrupted, error-free, hardware-accurate, secure, or that any defect will be corrected.
+      </p>
+      <p>
+        This restates, in plain language, the disclaimer already contained in sections 15&ndash;17 of the GPL-3.0 licence.
+      </p>
+    </section>
+
+    <section>
+      <h2><span class="num">6</span> Limitation of liability</h2>
+      <p>
+        To the fullest extent permitted by applicable law, the author shall not be liable for any direct, indirect,
+        incidental, special, consequential or exemplary damages arising out of or in connection with your use of, or
+        inability to use, the Project. This includes, without limitation, hearing damage, damage to audio equipment,
+        loss of data or work, business interruption, or loss of profits &mdash; even if the author has been advised of
+        the possibility of such damages.
+      </p>
+      <p>
+        Some jurisdictions do not allow the exclusion of certain warranties or the limitation of liability for
+        personal injury or gross negligence, so parts of the two sections above may not apply to you. Nothing in these
+        terms excludes any liability that cannot lawfully be excluded.
+      </p>
+    </section>
+
+    <section>
+      <h2><span class="num">7</span> Your responsibilities</h2>
+      <p>When using the Project, you agree not to:</p>
+      <ul>
+        <li>use it in any environment where failure or unexpected output could cause injury, loss or damage;</li>
+        <li>use it for any unlawful purpose, or to infringe anyone's rights;</li>
+        <li>misrepresent the Project as an official product of, or as endorsed by, any hardware manufacturer;</li>
+        <li>attempt to disrupt or overload the hosting infrastructure or any third-party service the Project relies on.</li>
+      </ul>
+      <p>
+        You are solely responsible for the patterns, code and audio you create with the Project, and for setting a
+        safe listening level on your own equipment.
+      </p>
+    </section>
+
+    <section>
+      <h2><span class="num">8</span> Data &amp; third-party services</h2>
+      <p>
+        This website is a static site. It sets no cookies, requires no account, and the author collects no personal
+        data through it. Anything you type into the live editor is evaluated in your browser and is not transmitted to
+        the author.
+      </p>
+      <p>
+        The site is hosted on GitHub Pages and loads resources from third-party providers such as
+        <a href="https://unpkg.com" target="_blank" rel="noopener noreferrer">unpkg</a> and Google Fonts. Those
+        providers are independent of this Project and may record technical information such as your IP address under
+        their own privacy policies, over which the author has no control.
+      </p>
+    </section>
+
+    <section>
+      <h2><span class="num">9</span> Changes</h2>
+      <p>
+        These terms may be updated at any time. The revision date at the top of this page indicates the current
+        version, and the full history is public in the
+        <a href="https://github.com/strudel-gb/strudel-gb.github.io" target="_blank" rel="noopener noreferrer">Git repository</a>.
+        Continued use of the Project after a change constitutes acceptance of the updated terms.
+      </p>
+    </section>
+
+    <section>
+      <h2><span class="num">10</span> Contact</h2>
+      <p>
+        Questions, corrections, licensing concerns or trademark notices can be raised as an issue on the
+        <a href="https://github.com/strudel-gb/strudel-gb.github.io/issues" target="_blank" rel="noopener noreferrer">GitHub repository</a>.
+        Good-faith requests from rights holders will be addressed promptly.
+      </p>
+    </section>
+
+    <div class="callout info">
+      <span class="icon">📄</span>
+      <p>
+        These terms are a plain-language notice for a free hobby project, not legal advice, and they have not been
+        reviewed by a lawyer. If any part is unenforceable in your jurisdiction, the remainder continues to apply.
+      </p>
+    </div>
+
+  </div>
+
+  <footer>
+    <div>
+      strudel-gb plugin designed by <span class="flashy-gold-name">Aurélien Drouet</span> &copy; 2026.
+    </div>
+    <div class="licenses-links">
+      <a href="https://github.com/strudel-gb/strudel-gb.github.io" target="_blank" rel="noopener noreferrer">GitHub Repo</a> |
+      <a href="terms.html">Terms of Use</a> |
+      Licenses:
+      <a href="LICENSE" target="_blank" rel="noopener noreferrer">strudel-gb (GPL-3.0)</a> |
+      <a href="https://github.com/tidalcycles/strudel/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">strudel (GPL-3.0)</a> |
+      <a href="https://github.com/shamblesides/apu/blob/master/LICENSE" target="_blank" rel="noopener noreferrer">apu (BSD-3-Clause)</a>
+    </div>
+  </footer>
+
+</body>
+</html>

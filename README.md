@@ -190,8 +190,12 @@ Note that `repl.html` and `playground.html` carry their own copies of the parame
 
 ---
 
-## License
+## License & Terms
 
 This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)** - see the [LICENSE](LICENSE) file for details.
+
+Use of the website and software is additionally covered by the **[Terms of Use](https://strudel-gb.github.io/terms.html)** ([source](terms.html)), which set out the no-warranty and liability disclaimers, the volume/hearing warning, and the trademark position.
+
+> **Not affiliated with Nintendo.** "Game Boy" and "Nintendo" are trademarks of their respective owners and are used here only descriptively, to identify the audio hardware whose behaviour this software emulates. This project contains no copyrighted ROM, BIOS, firmware or game assets.
 
 Designed & Developed by **Aurélien Drouet** © 2026.
