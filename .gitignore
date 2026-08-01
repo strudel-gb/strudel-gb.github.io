@@ -17,6 +17,7 @@ build/
 .env
 .env.local
 .env.*.local
+.envrc
 
 # System / OS files
 .DS_Store
