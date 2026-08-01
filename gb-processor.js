@@ -45,6 +45,17 @@ function getWasmValue(val) {
   return val;
 }
 
+// Envelope direction may arrive as a number (-1/0/1), a string ('down'/'up'),
+// or as something stringifiable coming from a Strudel control. Returns the
+// NRx2 direction bit: 0 = decay, 1 = swell.
+function envDirectionBit(direction) {
+  if (direction === null || direction === undefined) return 1;
+  if (typeof direction === 'number') return direction > 0 ? 1 : 0;
+  const s = String(direction).trim().toLowerCase();
+  if (s === 'down' || s === 'decay' || s === '-1' || s === '0') return 0;
+  return 1;
+}
+
 class GBProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
@@ -285,7 +296,7 @@ class GBProcessor extends AudioWorkletProcessor {
     let envVal = 0xF3; // Default: volume=15, direction=down, pace=3
     if (event.envelope) {
       const initVol = Math.min(15, Math.max(0, event.envelope.initial !== undefined ? event.envelope.initial : 15));
-      const dir = (event.envelope.direction === -1 || event.envelope.direction === 0 || event.envelope.direction === 'down') ? 0 : 1;
+      const dir = envDirectionBit(event.envelope.direction);
       const pace = Math.min(7, Math.max(0, event.envelope.pace !== undefined ? event.envelope.pace : 3));
       envVal = (initVol << 4) | (dir << 3) | pace;
     } else if (event.volume !== undefined) {
@@ -322,7 +333,7 @@ class GBProcessor extends AudioWorkletProcessor {
     let envVal = 0xF3;
     if (event.envelope) {
       const initVol = Math.min(15, Math.max(0, event.envelope.initial !== undefined ? event.envelope.initial : 15));
-      const dir = (event.envelope.direction === -1 || event.envelope.direction === 0 || event.envelope.direction === 'down') ? 0 : 1;
+      const dir = envDirectionBit(event.envelope.direction);
       const pace = Math.min(7, Math.max(0, event.envelope.pace !== undefined ? event.envelope.pace : 3));
       envVal = (initVol << 4) | (dir << 3) | pace;
     } else if (event.volume !== undefined) {
@@ -425,7 +436,7 @@ class GBProcessor extends AudioWorkletProcessor {
     let envVal = 0xF3;
     if (event.envelope) {
       const initVol = Math.min(15, Math.max(0, event.envelope.initial !== undefined ? event.envelope.initial : 15));
-      const dir = (event.envelope.direction === -1 || event.envelope.direction === 0 || event.envelope.direction === 'down') ? 0 : 1;
+      const dir = envDirectionBit(event.envelope.direction);
       const pace = Math.min(7, Math.max(0, event.envelope.pace !== undefined ? event.envelope.pace : 3));
       envVal = (initVol << 4) | (dir << 3) | pace;
     } else if (event.volume !== undefined) {
@@ -449,8 +460,12 @@ class GBProcessor extends AudioWorkletProcessor {
     freqByte = (freqByte & 0xF7) | (lfsrWidth << 3);
     this.gb_sound_w(0, 0x12, freqByte);
 
-    // NR44 (Trigger)
-    this.gb_sound_w(0, 0x13, 0x80);
+    // NR44 (Trigger). Bit 6 enables the length counter - without it the
+    // NR41 length value is loaded but never counts down, so .length() has no
+    // audible effect on this channel.
+    let nr44 = 0x80;
+    if (typeof event.length === 'number') nr44 |= 0x40;
+    this.gb_sound_w(0, 0x13, nr44);
   }
 
   triggerNote(event) {
@@ -675,7 +690,7 @@ class GBProcessor extends AudioWorkletProcessor {
         if (blockTime >= chan.lastEnvTickTime + stepDuration) {
           const steps = Math.floor((blockTime - chan.lastEnvTickTime) / stepDuration);
           chan.lastEnvTickTime += steps * stepDuration;
-          const dir = (chan.envelope.direction === -1 || chan.envelope.direction === 0 || chan.envelope.direction === 'down') ? 0 : 1;
+          const dir = envDirectionBit(chan.envelope.direction);
           if (dir === 0) {
             chan.currentVolume = Math.max(0, chan.currentVolume - steps);
           } else {

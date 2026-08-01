@@ -547,7 +547,7 @@
             <td>Configures Noise generator clock multiplier and divisor ratio.</td>
           </tr>
           <tr>
-            <td><code>.arp(arr)</code></td>
+            <td><code>.arpTable(arr)</code></td>
             <td>Array/Str</td>
             <td><code>[0, 4, 7]</code>, <code>"0 3 7"</code></td>
             <td>Fakes chord polyphony in the audio thread using high-speed arpeggiation offsets.</td>
@@ -569,9 +569,9 @@
       <h3 style="font-size: 1.1rem; margin-top: 1rem; color: #a5b4fc;">1. Classic Stereo Counterpoint</h3>
       <p>Pan two pulse leads opposite ways to create a wider stereo image.</p>
       <div class="code-panel">
-        <button class="btn-copy" onclick="copyCode(this, `stack(note(\x22C4 E4 G4 B4\x22).s(\x22gb.lead\x22).pan(-0.8).arp([0, 7]), note(\x22E3 G3 B3 D4\x22).s(\x22gb.pad\x22).pan(0.8).tags(\x22nasal\x22))`)">Copy</button>
+        <button class="btn-copy" onclick="copyCode(this, `stack(note(\x22C4 E4 G4 B4\x22).s(\x22gb.lead\x22).pan(-0.8).arpTable([0, 7]), note(\x22E3 G3 B3 D4\x22).s(\x22gb.pad\x22).pan(0.8).tags(\x22nasal\x22))`)">Copy</button>
         <pre><code>stack(
-  note("C4 E4 G4 B4").s("gb.lead").pan(-0.8).arp([0, 7]),
+  note("C4 E4 G4 B4").s("gb.lead").pan(-0.8).arpTable([0, 7]),
   note("E3 G3 B3 D4").s("gb.pad").pan(0.8).tags("nasal")
 )</code></pre>
       </div>
@@ -706,9 +706,9 @@
       }
       if (inst.arp !== undefined) {
         if (Array.isArray(inst.arp)) {
-          parts.push(`.arp([${inst.arp.join(', ')}])`);
+          parts.push(`.arpTable([${inst.arp.join(', ')}])`);
         } else {
-          parts.push(`.arp('${inst.arp}')`);
+          parts.push(`.arpTable('${inst.arp}')`);
         }
       }
       if (inst.arpSpeed !== undefined) parts.push(`.arpSpeed(${inst.arpSpeed})`);

@@ -75,6 +75,17 @@ function getWasmValue(val) {
   return val;
 }
 
+// Envelope direction may arrive as a number (-1/0/1), a string ('down'/'up'),
+// or as something stringifiable coming from a Strudel control. Returns the
+// NRx2 direction bit: 0 = decay, 1 = swell.
+function envDirectionBit(direction) {
+  if (direction === null || direction === undefined) return 1;
+  if (typeof direction === 'number') return direction > 0 ? 1 : 0;
+  const s = String(direction).trim().toLowerCase();
+  if (s === 'down' || s === 'decay' || s === '-1' || s === '0') return 0;
+  return 1;
+}
+
 class GBProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
@@ -315,7 +326,7 @@ class GBProcessor extends AudioWorkletProcessor {
     let envVal = 0xF3; // Default: volume=15, direction=down, pace=3
     if (event.envelope) {
       const initVol = Math.min(15, Math.max(0, event.envelope.initial !== undefined ? event.envelope.initial : 15));
-      const dir = (event.envelope.direction === -1 || event.envelope.direction === 0 || event.envelope.direction === 'down') ? 0 : 1;
+      const dir = envDirectionBit(event.envelope.direction);
       const pace = Math.min(7, Math.max(0, event.envelope.pace !== undefined ? event.envelope.pace : 3));
       envVal = (initVol << 4) | (dir << 3) | pace;
     } else if (event.volume !== undefined) {
@@ -352,7 +363,7 @@ class GBProcessor extends AudioWorkletProcessor {
     let envVal = 0xF3;
     if (event.envelope) {
       const initVol = Math.min(15, Math.max(0, event.envelope.initial !== undefined ? event.envelope.initial : 15));
-      const dir = (event.envelope.direction === -1 || event.envelope.direction === 0 || event.envelope.direction === 'down') ? 0 : 1;
+      const dir = envDirectionBit(event.envelope.direction);
       const pace = Math.min(7, Math.max(0, event.envelope.pace !== undefined ? event.envelope.pace : 3));
       envVal = (initVol << 4) | (dir << 3) | pace;
     } else if (event.volume !== undefined) {
@@ -455,7 +466,7 @@ class GBProcessor extends AudioWorkletProcessor {
     let envVal = 0xF3;
     if (event.envelope) {
       const initVol = Math.min(15, Math.max(0, event.envelope.initial !== undefined ? event.envelope.initial : 15));
-      const dir = (event.envelope.direction === -1 || event.envelope.direction === 0 || event.envelope.direction === 'down') ? 0 : 1;
+      const dir = envDirectionBit(event.envelope.direction);
       const pace = Math.min(7, Math.max(0, event.envelope.pace !== undefined ? event.envelope.pace : 3));
       envVal = (initVol << 4) | (dir << 3) | pace;
     } else if (event.volume !== undefined) {
@@ -479,8 +490,12 @@ class GBProcessor extends AudioWorkletProcessor {
     freqByte = (freqByte & 0xF7) | (lfsrWidth << 3);
     this.gb_sound_w(0, 0x12, freqByte);
 
-    // NR44 (Trigger)
-    this.gb_sound_w(0, 0x13, 0x80);
+    // NR44 (Trigger). Bit 6 enables the length counter - without it the
+    // NR41 length value is loaded but never counts down, so .length() has no
+    // audible effect on this channel.
+    let nr44 = 0x80;
+    if (typeof event.length === 'number') nr44 |= 0x40;
+    this.gb_sound_w(0, 0x13, nr44);
   }
 
   triggerNote(event) {
@@ -705,7 +720,7 @@ class GBProcessor extends AudioWorkletProcessor {
         if (blockTime >= chan.lastEnvTickTime + stepDuration) {
           const steps = Math.floor((blockTime - chan.lastEnvTickTime) / stepDuration);
           chan.lastEnvTickTime += steps * stepDuration;
-          const dir = (chan.envelope.direction === -1 || chan.envelope.direction === 0 || chan.envelope.direction === 'down') ? 0 : 1;
+          const dir = envDirectionBit(chan.envelope.direction);
           if (dir === 0) {
             chan.currentVolume = Math.max(0, chan.currentVolume - steps);
           } else {
@@ -1392,6 +1407,58 @@ export const DEFAULTS = {
     'ghost': { envelope: { initial: 4, direction: 'down', pace: 2 }, volume: 2 }
   };
 
+// Note names are accepted case-insensitively, with '#'/'s' for sharp and
+// 'b'/'f' for flat ('c4', 'C4', 'g#4', 'Gs4', 'Ab3' all parse). Returns a MIDI
+// number, or null when the string is not a note name.
+export function gbNoteToMidi(n) {
+  if (typeof n === 'number') return n;
+  if (typeof n !== 'string') return null;
+  const match = n.trim().match(/^([A-Ga-g])([#bsf]?)(-?\\d+)$/);
+  if (!match) return null;
+  const offsets = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  let midi = offsets[match[1].toUpperCase()] + (parseInt(match[3], 10) + 1) * 12;
+  const acc = match[2];
+  if (acc === '#' || acc === 's') midi += 1;
+  else if (acc === 'b' || acc === 'f') midi -= 1;
+  return midi;
+}
+
+// Strudel controls patternify their arguments, so a string nested inside an
+// object (e.g. .envelope({direction:"down"})) arrives as a Pattern instance.
+// Patterns hold functions and cannot cross a MessagePort: postMessage would
+// throw DataCloneError and the note would silently never reach the APU.
+// Collapse anything non-clonable into plain data before scheduling.
+export function gbSanitize(val, depth) {
+  const d = depth || 0;
+  if (val === null || val === undefined) return val;
+  const t = typeof val;
+  if (t === 'string' || t === 'number' || t === 'boolean') return val;
+  if (t === 'bigint') return Number(val);
+  if (t === 'function' || t === 'symbol') return undefined;
+  if (d > 4) return undefined;
+
+  // Strudel Pattern -> the value(s) of its first cycle
+  if (typeof val.queryArc === 'function') {
+    try {
+      const haps = val.queryArc(0, 1) || [];
+      const vals = haps.map(h => gbSanitize(h && h.value, d + 1)).filter(v => v !== undefined);
+      if (vals.length === 0) return undefined;
+      return vals.length === 1 ? vals[0] : vals;
+    } catch (err) {
+      return undefined;
+    }
+  }
+  if (Array.isArray(val)) {
+    return val.map(v => gbSanitize(v, d + 1)).filter(v => v !== undefined);
+  }
+  const out = {};
+  for (const key of Object.keys(val)) {
+    const v = gbSanitize(val[key], d + 1);
+    if (v !== undefined) out[key] = v;
+  }
+  return out;
+}
+
 export async function initGBPlugin(audioCtx, core) {
   await audioCtx.audioWorklet.addModule(blobURL);
   
@@ -1429,7 +1496,7 @@ export async function initGBPlugin(audioCtx, core) {
     const checkKeys = [
       'channel', 'duty', 'volume', 'length', 'envelope', 'pitchSweep', 
       'waveTable', 'wave', 'lfsr', 'frequency', 'priority', 'pan', 
-      'mute', 'solo', 'arp', 'arpSpeed'
+      'mute', 'solo', 'arp', 'arpTable', 'hwArp', 'gbArp', 'arpSpeed'
     ];
     if (params.hap && typeof params.hap === 'object') {
       for (const key of checkKeys) {
@@ -1443,6 +1510,24 @@ export async function initGBPlugin(audioCtx, core) {
         resolved[key] = params[key];
       }
     }
+    // Pulse and noise have no separate volume register: the envelope's
+    // initial level IS the volume. Without this, .volume() is silently
+    // ignored whenever an envelope is present - and one always is,
+    // because DEFAULTS supplies one. An explicit .envelope() still wins.
+    const explicitVolume = params.volume !== undefined ||
+      (params.hap && typeof params.hap === 'object' && params.hap.volume !== undefined);
+    const explicitEnvelope = params.envelope !== undefined ||
+      (params.hap && typeof params.hap === 'object' && params.hap.envelope !== undefined);
+    if (explicitVolume && !explicitEnvelope && resolved.envelope) {
+      resolved.envelope = Object.assign({}, resolved.envelope, { initial: resolved.volume });
+    }
+
+    // 'arp' is already taken by Strudel core's chord arpeggiator, so the
+    // hardware arpeggiator is exposed as .arpTable(). Fold the aliases in.
+    if (resolved.arpTable !== undefined) resolved.arp = resolved.arpTable;
+    else if (resolved.hwArp !== undefined) resolved.arp = resolved.hwArp;
+    else if (resolved.gbArp !== undefined) resolved.arp = resolved.gbArp;
+
     // Normalize wave/waveTable aliases
     if (resolved.wave !== undefined) {
       resolved.waveTable = resolved.wave;
@@ -1453,16 +1538,26 @@ export async function initGBPlugin(audioCtx, core) {
     return resolved;
   };
 
+  // Every message is sanitized so a stray Pattern/function value cannot kill
+  // the note with a silent DataCloneError.
+  const postSchedule = (msg) => {
+    const safe = gbSanitize(msg);
+    try {
+      gbNode.port.postMessage(safe);
+    } catch (err) {
+      console.error('[strudel-gb] Could not schedule note (message not cloneable):', err && err.message, safe);
+    }
+  };
+
   const scheduleGB = (context, params, instrumentDefault = 'gb') => {
       const getFreq = (n) => {
         if (typeof n === 'number') return 440 * Math.pow(2, (n - 69) / 12);
         if (typeof n !== 'string') return 440;
-        const match = n.match(/^([A-G])([#b]?)(-?\\d+)$/);
-        if (!match) return 440;
-        const offsets = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
-        let midi = offsets[match[1]] + (parseInt(match[3], 10) + 1) * 12;
-        if (match[2] === '#') midi += 1;
-        if (match[2] === 'b') midi -= 1;
+        const midi = gbNoteToMidi(n);
+        if (midi === null) {
+          console.warn('[strudel-gb] Unrecognised note name: ' + n + ' (falling back to 440Hz)');
+          return 440;
+        }
         return 440 * Math.pow(2, (midi - 69) / 12);
       };
       const hz = params.freq || getFreq(params.note);
@@ -1470,7 +1565,7 @@ export async function initGBPlugin(audioCtx, core) {
       const resolved = resolveParams(params, instrumentDefault);
       const voiceId = Math.random().toString(36).slice(2);
 
-      gbNode.port.postMessage({
+      postSchedule({
         type: 'schedule',
         action: 'noteOn',
         voiceId: voiceId,
@@ -1496,7 +1591,7 @@ export async function initGBPlugin(audioCtx, core) {
 
       // Schedule noteOff in the future based on note duration
       const duration = context.duration || 0.5;
-      gbNode.port.postMessage({
+      postSchedule({
         type: 'schedule',
         action: 'noteOff',
         voiceId: voiceId,
@@ -1506,7 +1601,7 @@ export async function initGBPlugin(audioCtx, core) {
 
       return {
         stop: (time) => {
-          gbNode.port.postMessage({
+          postSchedule({
             type: 'schedule',
             action: 'noteOff',
             voiceId: voiceId,
@@ -1518,7 +1613,7 @@ export async function initGBPlugin(audioCtx, core) {
     };
 
   if (core && typeof core.createParams === 'function') {
-    core.createParams('channel', 'duty', 'envelope', 'pitchSweep', 'waveTable', 'wave', 'lfsr', 'frequency', 'priority', 'volume', 'length', 'mute', 'solo', 'tags', 'arpSpeed', 'hwArp', 'gbArp');
+    core.createParams('channel', 'duty', 'envelope', 'pitchSweep', 'waveTable', 'wave', 'lfsr', 'frequency', 'priority', 'volume', 'length', 'mute', 'solo', 'tags', 'arpTable', 'arpSpeed', 'hwArp', 'gbArp');
   }
   if (core && core.Pattern && typeof core.Pattern.prototype === 'object') {
     const origArp = core.Pattern.prototype.arp;
@@ -1568,13 +1663,8 @@ export async function initGBPlugin(audioCtx, core) {
     const noteToMidi = (n) => {
       if (typeof n === 'number') return n;
       if (typeof n !== 'string') return 60;
-      const match = n.match(/^([A-G])([#b]?)(-?\\d+)$/);
-      if (!match) return 60;
-      const offsets = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
-      let midi = offsets[match[1]] + (parseInt(match[3], 10) + 1) * 12;
-      if (match[2] === '#') midi += 1;
-      if (match[2] === 'b') midi -= 1;
-      return midi;
+      const midi = gbNoteToMidi(n);
+      return midi === null ? 60 : midi;
     };
 
     core.Pattern.prototype.autoChannels = function() {

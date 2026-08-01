@@ -221,8 +221,10 @@
 
   <!-- Load our local Game Boy plugin as an ES module to expose its initializer -->
   <script type="module">
-    import { initGBPlugin, DEFAULTS, INSTRUMENTS, TAGS } from './strudel-gb-plugin.js';
+    import { initGBPlugin, DEFAULTS, INSTRUMENTS, TAGS, gbNoteToMidi, gbSanitize } from './strudel-gb-plugin.js';
     window.initGBPlugin = initGBPlugin;
+    window.gbNoteToMidi = gbNoteToMidi;
+    window.gbSanitize = gbSanitize;
     window.GB_DEFAULTS = DEFAULTS;
     window.GB_INSTRUMENTS = INSTRUMENTS;
     window.GB_TAGS = TAGS;
@@ -251,7 +253,7 @@ try {
     window.gbNode = await window.initGBPlugin(ctx);
     
     if (typeof createParams === 'function') {
-      createParams('channel', 'duty', 'envelope', 'pitchSweep', 'waveTable', 'wave', 'lfsr', 'frequency', 'priority', 'volume', 'length', 'mute', 'solo', 'tags', 'arpSpeed', 'hwArp', 'gbArp');
+      createParams('channel', 'duty', 'envelope', 'pitchSweep', 'waveTable', 'wave', 'lfsr', 'frequency', 'priority', 'volume', 'length', 'mute', 'solo', 'tags', 'arpTable', 'arpSpeed', 'hwArp', 'gbArp');
     }
 
     const DEFAULTS = window.GB_DEFAULTS;
@@ -282,7 +284,7 @@ try {
       const checkKeys = [
         'channel', 'duty', 'volume', 'length', 'envelope', 'pitchSweep', 
         'waveTable', 'wave', 'lfsr', 'frequency', 'priority', 'pan', 
-        'mute', 'solo', 'arp', 'arpSpeed'
+        'mute', 'solo', 'arp', 'arpTable', 'hwArp', 'gbArp', 'arpSpeed'
       ];
       if (params.hap && typeof params.hap === 'object') {
         for (const key of checkKeys) {
@@ -296,6 +298,24 @@ try {
           resolved[key] = params[key];
         }
       }
+      // Pulse and noise have no separate volume register: the envelope's
+      // initial level IS the volume. Without this, .volume() is silently
+      // ignored whenever an envelope is present - and one always is,
+      // because DEFAULTS supplies one. An explicit .envelope() still wins.
+      const explicitVolume = params.volume !== undefined ||
+        (params.hap && typeof params.hap === 'object' && params.hap.volume !== undefined);
+      const explicitEnvelope = params.envelope !== undefined ||
+        (params.hap && typeof params.hap === 'object' && params.hap.envelope !== undefined);
+      if (explicitVolume && !explicitEnvelope && resolved.envelope) {
+        resolved.envelope = Object.assign({}, resolved.envelope, { initial: resolved.volume });
+      }
+
+      // 'arp' belongs to Strudel core's chord arpeggiator; the hardware
+      // arpeggiator is exposed as .arpTable().
+      if (resolved.arpTable !== undefined) resolved.arp = resolved.arpTable;
+      else if (resolved.hwArp !== undefined) resolved.arp = resolved.hwArp;
+      else if (resolved.gbArp !== undefined) resolved.arp = resolved.gbArp;
+
       if (resolved.wave !== undefined) {
         resolved.waveTable = resolved.wave;
       }
@@ -305,18 +325,29 @@ try {
       return resolved;
     };
 
+    // Sanitize before crossing the MessagePort: a Pattern or function value
+    // would otherwise raise DataCloneError and silently drop the note.
+    const postSchedule = (msg) => {
+      const safe = window.gbSanitize(msg);
+      try {
+        window.gbNode.port.postMessage(safe);
+      } catch (err) {
+        console.error('[strudel-gb] Could not schedule note (message not cloneable):', err && err.message, safe);
+      }
+      return safe;
+    };
+
     const registerGBSound = (name, instDefault) => {
       registerSound(name, (time, value) => {
         window.lastRawValue = value;
         const getFreq = (n) => {
           if (typeof n === 'number') return 440 * Math.pow(2, (n - 69) / 12);
           if (typeof n !== 'string') return 440;
-          const match = n.match(/^([A-G])([#b]?)(-?\\d+)$/);
-          if (!match) return 440;
-          const offsets = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
-          let midi = offsets[match[1]] + (parseInt(match[3], 10) + 1) * 12;
-          if (match[2] === '#') midi += 1;
-          if (match[2] === 'b') midi -= 1;
+          const midi = window.gbNoteToMidi(n);
+          if (midi === null) {
+            console.warn('[strudel-gb] Unrecognised note name: ' + n + ' (falling back to 440Hz)');
+            return 440;
+          }
           return 440 * Math.pow(2, (midi - 69) / 12);
         };
         const freq = value.freq || getFreq(value.note);
@@ -347,12 +378,11 @@ try {
           arpSpeed: resolved.arpSpeed,
           duration: value.duration || 0.5
         };
-        window.lastScheduledNoteOn = msg;
-        window.gbNode.port.postMessage(msg);
+        window.lastScheduledNoteOn = postSchedule(msg);
         
         // Schedule noteOff in the future based on note duration
         const duration = value.duration || 0.5;
-        window.gbNode.port.postMessage({
+        postSchedule({
           type: 'schedule',
           action: 'noteOff',
           voiceId: voiceId,
@@ -363,7 +393,7 @@ try {
         // Return a dummy gain node connected to the scheduler
         const dummy = new GainNode(ctx, { gain: 0 });
         dummy.stop = (stopTime) => {
-          window.gbNode.port.postMessage({
+          postSchedule({
             type: 'schedule',
             action: 'noteOff',
             voiceId: voiceId,
@@ -427,15 +457,8 @@ try {
       PatternClass.prototype.hwArp = function(val) { return this.set('arp', val); };
       PatternClass.prototype.gbArp = function(val) { return this.set('arp', val); };
       const noteToMidi = (n) => {
-        if (typeof n === 'number') return n;
-        if (typeof n !== 'string') return 60;
-        const match = n.match(/^([A-G])([#b]?)(-?\\d+)$/);
-        if (!match) return 60;
-        const offsets = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
-        let midi = offsets[match[1]] + (parseInt(match[3], 10) + 1) * 12;
-        if (match[2] === '#') midi += 1;
-        if (match[2] === 'b') midi -= 1;
-        return midi;
+        const midi = window.gbNoteToMidi(n);
+        return midi === null ? 60 : midi;
       };
 
       PatternClass.prototype.autoChannels = function() {
@@ -612,21 +635,21 @@ stack(
   // Major chords on Lead instrument (Pulse 1)
   note("C4 F4 G4 C4")
     .s("gb.lead")
-    .arp("0 4 7 12")
+    .arpTable([0, 4, 7, 12])
     .arpSpeed(20)
     .fast(0.5),
 
   // Minor chords on Pluck instrument (Pulse 2)
   note("A3 D4 E4 A3")
     .s("gb.pluck")
-    .arp("0 3 7 12")
+    .arpTable([0, 3, 7, 12])
     .arpSpeed(15)
     .fast(0.5),
 
   // Octave arpeggio on Wave Bass
   note("A1 E2")
      .s("gb.bass")
-     .arp([0, 12])
+     .arpTable([0, 12])
      .arpSpeed(12)
      .fast(0.5)
 )`,
@@ -705,7 +728,7 @@ stack(
 // [P1-10] Built-in Arpeggiator Test
 // Scope: Verifies rapid semitone offset cycle (arp chord simulation).
 // Expected Output: A rapid chiptune chord sound playing a major triad.
-// note("C4").s("gb").channel("pulse1").arp("0 4 7 12").arpSpeed(20)
+// note("C4").s("gb").channel("pulse1").arpTable([0, 4, 7, 12]).arpSpeed(20)
 
 // [P1-11] Preset Instruments Test
 // Scope: Verifies that pre-defined Pulse 1 instruments load correct settings.
@@ -773,7 +796,7 @@ note("C4").s("gb").channel("pulse1")`,
 // [P2-08] Built-in Arpeggiator Test
 // Scope: Verifies rapid semitone offset cycle (arp chord simulation).
 // Expected Output: A rapid chiptune chord sound playing a minor triad.
-// note("E4").s("gb").channel("pulse2").arp("0 3 7 12").arpSpeed(18)
+// note("E4").s("gb").channel("pulse2").arpTable([0, 3, 7, 12]).arpSpeed(18)
 
 // [P2-09] Preset Instruments Test
 // Scope: Verifies Pulse 2 instrument defaults (e.g. gb.pad uses Pulse 2).
@@ -841,7 +864,7 @@ note("E4").s("gb").channel("pulse2")`,
 // [WV-08] Built-in Arpeggiator Test
 // Scope: Verifies arpeggiator on the Wave channel.
 // Expected Output: A rapid minor triad bass chord.
-// note("C3").s("gb").channel("wave").arp("0 3 7").arpSpeed(12).volume(8)
+// note("C3").s("gb").channel("wave").arpTable([0, 3, 7]).arpSpeed(12).volume(8)
 
 // [WV-09] Preset Instruments Test
 // Scope: Verifies Wave instrument presets: gb.bass, gb.sub-bass, gb.triangle, gb.organ, gb.voice.

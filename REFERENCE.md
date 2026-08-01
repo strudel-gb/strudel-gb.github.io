@@ -188,17 +188,29 @@ For ultimate control, you can bypass instruments and tags and directly write raw
 ### Shared & Common Parameters
 
 *   **`volume(val)`**
-    *   Pulse & Noise: `0` (muted) to `15` (maximum volume).
+    *   Pulse & Noise: `0` (muted) to `15` (maximum volume). These channels have no
+        separate volume register, so `volume` sets the envelope's starting level.
+        An explicit `envelope()` takes precedence over `volume()`.
     *   Wave Channel: `0` (muted), `1` (100%), `2` (50%), `3` (25%).
 *   **`envelope(object)`**
     *   Direct control of the volume envelope. Expressed as: `{ initial: I, direction: D, pace: P }`.
     *   `initial` (0 to 15): Starting volume.
-    *   `direction`: `"down"` / `-1` / `0` for decay; `"up"` / `1` for swell.
+    *   `direction`: **use the numeric form** — `-1` (or `0`) for decay, `1` for swell.
     *   `pace` (0 to 7): Time per envelope step (0 = disabled/infinite hold, 1 = fastest, 7 = slowest).
+
+    > ⚠️ **Strings inside a control object.** Strudel parses a string nested in an
+    > object as mini-notation and replaces it with a `Pattern`. The plugin collapses
+    > that back to its first value, so `direction: "down"` works — but the numeric
+    > form is unambiguous and avoids the round-trip. The same applies to any other
+    > object-valued control (`pitchSweep`, `frequency`).
 *   **`length(val)`**
-    *   Sound length duration.
+    *   Sound length duration; enables the hardware length counter on the channel.
     *   Pulse/Noise: `0` to `63`.
     *   Wave: `0` to `255`.
+*   **Note names**
+    *   Case-insensitive, with `#` or `s` for sharp and `b` or `f` for flat:
+        `C4`, `c4`, `G#4`, `gs4`, `Ab3` and `ab3` all parse.
+    *   A name that cannot be parsed logs a warning and falls back to 440Hz.
 *   **`pan(val)`**
     *   Pan position from `-1` (left) to `1` (right).
     *   `pan < -0.2`: Hard Left.
@@ -209,19 +221,30 @@ For ultimate control, you can bypass instruments and tags and directly write raw
 
 ---
 
-## 5. Built-in Arpeggiator (`.arp()`, `.arpSpeed()`)
+## 5. Built-in Arpeggiator (`.arpTable()`, `.arpSpeed()`)
 
 To simulate chords on a single-channel monophonic hardware voice, the plugin includes a built-in arpeggiator that runs directly on the audio thread.
 
-*   **`arp(val)`**: Accepts an array of semitone offsets (e.g. `[0, 4, 7]`), a space/comma-separated string (e.g., `"0 3 7 10"`), or a single number (e.g. `12`).
+*   **`arpTable(val)`**: The table of semitone offsets to cycle through.
+    *   Array (recommended): `[0, 4, 7, 12]`.
+    *   Colon-separated string: `"0:4:7:12"` — equivalent to the array.
+    *   Single number: `12` — alternates between the root and that offset.
+    *   ⚠️ A **space-separated** string such as `"0 4 7 12"` does *not* work: Strudel
+        parses it as mini-notation and turns it into four separate events, so the
+        note only ever receives the first offset.
 *   **`arpSpeed(val)`**: Steps per second. Defaults to `18`.
+
+> **Why not `.arp()`?** Strudel core already defines `arp()` as its own chord
+> arpeggiator, which shadows any control of that name — patterns calling `.arp()`
+> silently never reach the hardware arpeggiator. Use `.arpTable()`. Presets and
+> tags defined inside the plugin continue to use the `arp` key internally.
 
 ```javascript
 // Classic arpeggiated chiptune major triad chord
 note("C4")
   .s("gb")
   .tags("chiptune")
-  .arp([0, 4, 7])
+  .arpTable([0, 4, 7])
   .arpSpeed(20)
 ```
 
