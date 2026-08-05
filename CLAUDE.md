@@ -151,6 +151,12 @@ prototype overrides, `registerSynth` — never runs in the shipped app. That is 
 - **NRx4 bit 6 enables the length counter.** Writing the trigger bit alone loads
   the length value but never counts it down, so `.length()` does nothing. Every
   channel's trigger write must set `0x40` when a length was given.
+- **`mute`/`solo` latch until the channel that set them plays again.** A soloed
+  channel silences the *others*, and they never trigger the write that would clear
+  it, so a solo outlived its pattern and every later pattern on another channel
+  was silent. `repl.html` now posts `{type:'resetMix'}` (or `gbNode.resetMix()`) on
+  every evaluation and every stop. Anything else that starts a pattern needs the
+  same call.
 - **A control value is a string, and every non-empty string is truthy.**
   `.mute("false")` muted the channel and `.solo("false")` soloed it, so the
   mini-notation form `.mute("false true")` silenced both notes. `mute`/`solo` go
@@ -199,6 +205,15 @@ trace written into `test-results/` would reload the page mid-test and wipe the p
 
 `tests/regression.spec.js` holds one test per bug that reached a user. Add to it rather than
 trusting a channel suite to cover a specific regression.
+
+`tests/catalog.spec.js` plays **every** `gb.*` preset and every tag and asserts each one is
+audible — a silent entry in a 65-item dropdown is otherwise invisible. It asserts on `peak`
+only: segment detection misses hits that are very short and very high (`noise-hihat` is loud
+but never registers as a note), so `noteCount` is not usable there.
+
+The dev server watches the whole project root, `tests/` included: writing a spec file and
+running it immediately reloads the page mid-test and wipes the probe (`__gbProbe` is
+undefined, `capture()` throws on `.stop()`). Let the watcher settle before running.
 
 ## Deployment
 

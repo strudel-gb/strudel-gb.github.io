@@ -351,4 +351,26 @@ test.describe('Regression tests', () => {
       `each tag must reshape the wave, got crests ${JSON.stringify(crests)}`,
     ).toBeGreaterThan(0.25);
   });
+  test('a solo does not outlive the pattern that set it', async ({ page }) => {
+    // solo mutes the *other* channels, and they never trigger the write that
+    // would clear it - so after playing a soloed line the next pattern on any
+    // other channel came out silent for the rest of the session.
+    const pulse = 'note("C5 E5").s("gb").channel("pulse1").volume(15)';
+    const before = await capture(page, pulse);
+    await capture(page, 'note("C3").s("gb").channel("wave").volume(15).solo(true)');
+    const after = await capture(page, pulse);
+
+    expect(before.peak, 'the pulse line must sound to begin with').toBeGreaterThan(0.002);
+    expect(after.peak, 'the pulse line must still sound after a soloed pattern')
+      .toBeGreaterThan(before.peak * 0.5);
+  });
+
+  test('a mute does not outlive the pattern that set it', async ({ page }) => {
+    const wave = 'note("C3").s("gb").channel("wave").volume(15)';
+    const before = await capture(page, wave);
+    await capture(page, `${wave}.mute(true)`);
+    const after = await capture(page, wave);
+    expect(after.peak, 'the wave line must come back after a muted pattern')
+      .toBeGreaterThan(before.peak * 0.5);
+  });
 });

@@ -113,6 +113,13 @@ class GBProcessor extends AudioWorkletProcessor {
         this.eventQueue.sort((a, b) => a.time - b.time);
       } else if (event.data.type === 'setStrictMode') {
         this.strictMode = !!event.data.value;
+      } else if (event.data.type === 'resetMix') {
+        // Mute and solo latch until the channel that set them plays again. A
+        // soloed channel silences the *others*, and they never get to clear it,
+        // so a solo outlived its pattern and the next pattern came out silent.
+        // Every evaluation and every stop starts from a clean mixer.
+        this.muteState = [false, false, false, false];
+        this.soloState = [false, false, false, false];
       }
     };
   }
@@ -828,6 +835,15 @@ class GBNodePool {
       node.port.start();
       this.nodes.push(node);
     }
+  }
+
+  // Clears the latched mute/solo state on every node. Call it whenever a new
+  // pattern takes over, or a solo from the previous one keeps other channels
+  // silent for the rest of the session.
+  resetMix() {
+    this.nodes.forEach(node => {
+      node.port.postMessage({ type: 'resetMix' });
+    });
   }
 
   setStrictMode(value) {

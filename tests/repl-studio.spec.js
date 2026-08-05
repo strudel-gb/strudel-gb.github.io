@@ -43,6 +43,7 @@ test.describe('strudel-gb Local REPL Studio', () => {
   // Loading a sample into the editor proves nothing about whether it makes a
   // sound, so each built-in demo is played and measured.
   const SAMPLES = [
+    ['demo_song', '// DEMO SONG - "Cartridge Boot" (original tune)'],
     ['test_pulse1', '// PULSE 1 CHANNEL COMPREHENSIVE TEST SUITE'],
     ['test_pulse2', '// PULSE 2 CHANNEL COMPREHENSIVE TEST SUITE'],
     ['test_wave', '// WAVE CHANNEL COMPREHENSIVE TEST SUITE'],
