@@ -82,19 +82,18 @@
     <div class="btn-group">
       <select id="sampleSelect" class="sample-select" onchange="loadSample(this.value)" disabled>
         <option value="" disabled selected>Booting APU...</option>
-        <option value="pulse1_sweep">Pulse 1 Sweep</option>
-        <option value="pulse2_duty">Pulse 2 Duty Cycle</option>
-        <option value="wave_custom">Wave Custom Table</option>
-        <option value="noise_drums">Noise Channel Drums</option>
         <option value="test_pulse1">Test: Pulse 1 Channel</option>
         <option value="test_pulse2">Test: Pulse 2 Channel</option>
         <option value="test_wave">Test: Wave Channel</option>
         <option value="test_noise">Test: Noise Channel</option>
-        <option value="multi_channel_demo">Multi-Channel Stack</option>
-        <option value="phase3_instruments">Instruments</option>
-        <option value="phase3_tags">Tags & Priority</option>
-        <option value="phase3_arp">Arpeggiator (Faux-Chords)</option>
-        <option value="phase4_autochannels">Smart Auto Routing</option>
+        <option value="test_instruments">Test: Instrument Presets</option>
+        <option value="test_tags">Test: Tags &amp; Precedence</option>
+        <option value="test_autochannels">Test: Smart Auto Routing</option>
+        <option value="test_arp">Test: Hardware Arpeggiator</option>
+        <option value="test_notes">Test: Note Parsing &amp; Range</option>
+        <option value="test_values">Test: Parameter Value Forms</option>
+        <option value="test_polyphony">Test: Polyphony &amp; Strict Mode</option>
+        <option value="test_multichannel">Test: Multi-Channel Layering</option>
       </select>
 
 
@@ -222,10 +221,13 @@
 
   <!-- Load our local Game Boy plugin as an ES module to expose its initializer -->
   <script type="module">
-    import { initGBPlugin, DEFAULTS, INSTRUMENTS, TAGS, gbNoteToMidi, gbSanitize } from './strudel-gb-plugin.js';
+    import { initGBPlugin, DEFAULTS, INSTRUMENTS, TAGS, gbNoteToMidi, gbSanitize, gbScalar, gbNormalizeParam, gbTagList } from './strudel-gb-plugin.js';
     window.initGBPlugin = initGBPlugin;
     window.gbNoteToMidi = gbNoteToMidi;
     window.gbSanitize = gbSanitize;
+    window.gbScalar = gbScalar;
+    window.gbNormalizeParam = gbNormalizeParam;
+    window.gbTagList = gbTagList;
     window.GB_DEFAULTS = DEFAULTS;
     window.GB_INSTRUMENTS = INSTRUMENTS;
     window.GB_TAGS = TAGS;
@@ -268,14 +270,7 @@ try {
       Object.assign(resolved, instSettings);
 
       if (params.tags) {
-        let tagList = [];
-        if (typeof params.tags === 'string') {
-          tagList = params.tags.split(/[\\s,]+/);
-        } else if (Array.isArray(params.tags)) {
-          tagList = params.tags;
-        }
-        for (const tag of tagList) {
-          const cleanTag = tag.trim();
+        for (const cleanTag of window.gbTagList(params.tags)) {
           if (TAGS[cleanTag]) {
             Object.assign(resolved, TAGS[cleanTag]);
           }
@@ -290,13 +285,13 @@ try {
       if (params.hap && typeof params.hap === 'object') {
         for (const key of checkKeys) {
           if (params.hap[key] !== undefined) {
-            resolved[key] = params.hap[key];
+            resolved[key] = window.gbNormalizeParam(key, params.hap[key]);
           }
         }
       }
       for (const key of checkKeys) {
         if (params[key] !== undefined) {
-          resolved[key] = params[key];
+          resolved[key] = window.gbNormalizeParam(key, params[key]);
         }
       }
       // Pulse and noise have no separate volume register: the envelope's
@@ -488,8 +483,14 @@ try {
             let targetChannel = val.channel;
             
             if (!targetChannel) {
-              const inst = val.instrument || 'gb';
-              const instDef = INSTRUMENTS[inst] || {};
+              // Strudel stores the sound name in value.s - value.instrument is
+              // never set on a hap. Reading the wrong key made this lookup fall
+              // back to the 'gb' preset, whose channel is pulse1, so every note
+              // without an explicit .channel() was forced onto Pulse 1 and the
+              // pitch/tag rules below were dead code. The bare 'gb' sound states
+              // no routing intent, so it is deliberately left to those rules.
+              const inst = val.instrument || val.s;
+              const instDef = (inst && inst !== 'gb' && INSTRUMENTS[inst]) || {};
               if (instDef.channel) {
                 targetChannel = instDef.channel;
               }
@@ -503,8 +504,8 @@ try {
                 midi = Math.round(12 * Math.log2(val.freq / 440) + 69);
               }
               
-              const tagsStr = typeof val.tags === 'string' ? val.tags : Array.isArray(val.tags) ? val.tags.join(' ') : '';
-              const isDrums = tagsStr && (tagsStr.includes('kick') || tagsStr.includes('snare') || tagsStr.includes('hihat') || tagsStr.includes('cymbal'));
+              const tagNames = window.gbTagList(val.tags);
+              const isDrums = tagNames.some(t => t.includes('kick') || t.includes('snare') || t.includes('hihat') || t.includes('cymbal'));
               
               if (isDrums) {
                 targetChannel = 'noise';
@@ -549,137 +550,14 @@ silence
 
     // Sample Game Boy patterns
     const SAMPLES = {
-      pulse1_sweep: `// Pulse 1 Pitch Sweep Demo
-// Uses the pitchSweep parameter to slide notes
-note("C4 C4 G4 G4 A4 A4 G4")
-  .s("gb")
-  .channel("pulse1")
-  .duty(25)
-  .pitchSweep({ rate: 2, amount: -2 })
-  .fast(1.5)`,
-
-      pulse2_duty: `// Pulse 2 Duty Cycle Demo
-// Alternates duty cycle for different timbres
-note("E4 G4 B4 A4")
-  .s("gb")
-  .channel("pulse2")
-  .duty("12.5 25 50 75")
-  .fast(2)`,
-
-      wave_custom: `// Custom Wavetable Demo
-// Uses custom shape for the Wave channel
-note("C3 E3 G3 C4")
-  .s("gb")
-  .channel("wave")
-  .wave("sawtooth")
-  .volume(8) // 50% volume
-  .fast(2)`,
-
-      noise_drums: `// Noise Channel Drums Demo
-// Uses short length and different frequencies/lfsr to make percussion
-stack(
-  note("C4").s("gb").channel("noise").lfsr(7).frequency({shift: 4, dividing: 1}).volume(15).fast(2), // kick/snare feel
-  note("C6").s("gb").channel("noise").lfsr(7).frequency({shift: 8, dividing: 2}).volume(6).fast(4) // hi-hat
-)`,
-
-      multi_channel_demo: `// Multi-Channel Stack Demo (Phase 2)
-// Combines Pulse 1, Pulse 2, Wave, and Noise channels simultaneously
-stack(
-  // Pulse 1 Lead
-  note("C5 D5 E5 F5 G5").s("gb").channel("pulse1").duty(25).volume(12).fast(2),
-  
-  // Pulse 2 Harmony
-  note("C4 E4 G4 B4").s("gb").channel("pulse2").duty(50).volume(8).fast(1.5),
-  
-  // Wave Bass
-  note("C2 G2 C3 G2").s("gb").channel("wave").wave("triangle").volume(15).fast(1),
-  
-  // Noise Drums
-  note("C4").s("gb").channel("noise").lfsr(7).frequency({shift: 3, dividing: 1}).volume(10).fast(2)
-)`,
-
-      phase3_instruments: `// Instruments Demo
-// Combines lead, bass, pluck, and pad instruments in a beautiful stack
-stack(
-  // Lead on Pulse 1 (bright timbre)
-  note("C5 E5 G5 A5").s("gb.lead").fast(2),
-  
-  // Bass on Wave (automatically selected by gb.bass)
-  note("C2 G2 C3 F2").s("gb.bass").fast(1),
-  
-  // Pluck on Pulse 1 (short decay)
-  note("E4 G4 C5 G4").s("gb.pluck").fast(3),
-  
-  // Pad on Pulse 2 (slower, ambient chords)
-  note("C4 G4").s("gb.pad").fast(0.5)
-)`,
-
-      phase3_tags: `// Tags & Priority Demo
-// Combines specialized composer tags and overrides them
-stack(
-  // Vibrant chiptune lead with gliss-up sweep
-  note("C4 E4 G4").s("gb.lead").tags("chiptune gliss-up").fast(2),
-  
-  // Smooth wave bass with a sub-octave sine wave
-  note("C2 G2 C3 G2").s("gb.bass").tags("sine-smooth sub-octave").fast(1),
-  
-  // Metallic hi-hat and snare on Noise channel
-  stack(
-    note("C6").s("gb").channel("noise").tags("noise-hihat staccato").fast(4),
-    note("C4").s("gb").channel("noise").tags("noise-snare").fast(2)
-  )
-)`,
-
-      phase3_arp: `// Hardware Arpeggiator (Faux-Chords) Demo
-// Alternates notes rapidly on a single channel to simulate chords (50Hz feel)
-stack(
-  // Major chords on Lead instrument (Pulse 1)
-  note("C4 F4 G4 C4")
-    .s("gb.lead")
-    .arpTable([0, 4, 7, 12])
-    .arpSpeed(20)
-    .fast(0.5),
-
-  // Minor chords on Pluck instrument (Pulse 2)
-  note("A3 D4 E4 A3")
-    .s("gb.pluck")
-    .arpTable([0, 3, 7, 12])
-    .arpSpeed(15)
-    .fast(0.5),
-
-  // Octave arpeggio on Wave Bass
-  note("A1 E2")
-     .s("gb.bass")
-     .arpTable([0, 12])
-     .arpSpeed(12)
-     .fast(0.5)
-)`,
-
-      phase4_autochannels: `// Smart Auto Routing (.autoChannels())
-// No manual channel declarations are used here!
-// Low notes automatically go to Wave. Drums automatically go to Noise.
-// Melodies dynamically cycle between Pulse 1 & Pulse 2!
-stack(
-  // Melody (high notes) -> dynamic routing between Pulse 1 and Pulse 2
-  note("C5 D5 E5 G5 A5").s("gb.lead").fast(2),
-  note("E4 G4 C5 G4").s("gb.pluck").fast(3),
-  
-  // Bassline (low notes) -> automatically routes to Wave channel
-  note("C2 G2 C3 G2").s("gb.bass").fast(1),
-  
-  // Drums -> automatically route to Noise channel
-stack(
-    note("C4").s("gb.kick").fast(2),
-    note("C6").s("gb.hihat").fast(4)
-  )
-)
-.autoChannels()`,
-
       test_pulse1: `// ==========================================
 // PULSE 1 CHANNEL COMPREHENSIVE TEST SUITE
 // ==========================================
 // To run a test, uncomment its code line (remove the leading '//') and click "Play".
 // Note: Observe the strict mode warnings or visualizer status in the interface.
+
+// --- ACTIVE PATTERN: comment this out to run one of the tests below ---
+note("C4").s("gb").channel("pulse1")
 
 // [P1-01] Volume Step Test
 // Scope: Verifies volume level configuration from silence (0) to maximum (15).
@@ -750,14 +628,15 @@ stack(
 // Scope: Verifies priority assignment on Pulse 1.
 // Expected Output: Note triggering with custom priority settings.
 // note("C4 E4").s("gb").channel("pulse1").priority("1 10")
-
-// --- Default baseline note (uncommented to ensure code evaluation works as-is) ---
-note("C4").s("gb").channel("pulse1")`,
+`,
 
       test_pulse2: `// ==========================================
 // PULSE 2 CHANNEL COMPREHENSIVE TEST SUITE
 // ==========================================
 // To run a test, uncomment its code line (remove the leading '//') and click "Play".
+
+// --- ACTIVE PATTERN: comment this out to run one of the tests below ---
+note("E4").s("gb").channel("pulse2")
 
 // [P2-01] Volume Step Test
 // Scope: Verifies volume level configuration from silence (0) to maximum (15) on Pulse 2.
@@ -818,14 +697,15 @@ note("C4").s("gb").channel("pulse1")`,
 // Scope: Verifies that Pulse 2 does not support hardware pitch sweeps (which only work on Pulse 1).
 // Expected Output: Plays normal notes with no pitch sweep (pitchSweep configuration has no effect).
 // note("E4 G4").s("gb").channel("pulse2").pitchSweep({ rate: 2, amount: 4 })
-
-// --- Default baseline note (uncommented to ensure code evaluation works as-is) ---
-note("E4").s("gb").channel("pulse2")`,
+`,
 
       test_wave: `// ==========================================
 // WAVE CHANNEL COMPREHENSIVE TEST SUITE
 // ==========================================
 // To run a test, uncomment its code line (remove the leading '//') and click "Play".
+
+// --- ACTIVE PATTERN: comment this out to run one of the tests below ---
+note("C3").s("gb").channel("wave").volume(8)
 
 // [WV-01] Hardware Discrete Volume Test
 // Scope: Verifies the four hardware discrete wave volume steps (0%, 25%, 50%, 100%).
@@ -881,14 +761,15 @@ note("E4").s("gb").channel("pulse2")`,
 // Scope: Verifies muting/soloing on Wave channel.
 // Expected Output: Note playing, followed by a silenced note.
 // note("C3 E3").s("gb").channel("wave").mute("false true")
-
-// --- Default baseline note (uncommented to ensure code evaluation works as-is) ---
-note("C3").s("gb").channel("wave").volume(8)`,
+`,
 
       test_noise: `// ==========================================
 // NOISE CHANNEL COMPREHENSIVE TEST SUITE
 // ==========================================
 // To run a test, uncomment its code line (remove the leading '//') and click "Play".
+
+// --- ACTIVE PATTERN: comment this out to run one of the tests below ---
+note("C4").s("gb").channel("noise").volume(8)
 
 // [NS-01] Volume Step Test
 // Scope: Verifies volume level configuration from silence (0) to maximum (15) on noise.
@@ -949,9 +830,753 @@ note("C3").s("gb").channel("wave").volume(8)`,
 // Scope: Verifies muting/soloing on Noise channel.
 // Expected Output: Noise hit playing, followed by a silenced hit.
 // note("C4 C4").s("gb").channel("noise").mute("false true")
+`,
 
-// --- Default baseline note (uncommented to ensure code evaluation works as-is) ---
-note("C4").s("gb").channel("noise").volume(8)`
+      test_instruments: `// ==========================================
+// INSTRUMENT PRESET TEST SUITE
+// ==========================================
+// Scope: every gb.* preset in INSTRUMENTS, plus the preset resolution rules.
+// To run a test, uncomment its code line (remove the leading '//') and click "Play".
+// Watch the visualizer to confirm each preset lands on the channel it declares.
+// Note: dense one-channel runs will raise POLYPHONY strict warnings - that is expected.
+
+// --- ACTIVE PATTERN: comment this out to run one of the tests below ---
+note("C4").s("gb.lead")
+
+// [IN-01] Default Instrument Test
+// Scope: Verifies the bare "gb" preset (pulse1, duty 50%, volume 12).
+// Expected Output: One plain square-wave note on Pulse 1.
+// note("C4").s("gb")
+
+// [IN-02] Pulse 1 Synth Presets Test
+// Scope: Verifies the 15 Pulse 1 synth presets load their own duty/envelope/sweep.
+// Expected Output: 15 distinct Pulse 1 timbres, from bright lead to swept effects.
+// note("C4*15").s("gb.lead gb.square gb.pluck gb.vibrato gb.siren gb.steel-drum gb.alien gb.heavy-kick gb.sci-fi-zap gb.deep-tom gb.water-plop gb.slow-brass gb.harpsichord gb.magic-chime gb").slow(4)
+
+// [IN-03] Pulse 2 Synth Presets Test
+// Scope: Verifies the 11 Pulse 2 synth presets (all declare channel pulse2).
+// Expected Output: 11 notes on the P2 meter only - P1 stays idle.
+// note("E4*11").s("gb.pad gb.mellow-flute gb.crunch-lead gb.bell-pluck gb.square-sub gb.delay-trail gb.soft-pad gb.bowed-string gb.arp-synth gb.pulse-organ gb.drip").slow(3)
+
+// [IN-04] Pulse SFX Presets Test
+// Scope: Verifies the arcade SFX presets, which combine arp/sweep with a short length.
+// Expected Output: Coin ping, jump-up, rising balloon, falling bubble, teleport run.
+// note("C5*5").s("gb.coin gb.jump gb.balloon gb.bubble gb.teleport").slow(2)
+
+// [IN-05] Wave Preset Wavetable Test
+// Scope: Verifies the 9 Wave presets each install their own 32-step wavetable.
+// Expected Output: 9 bass notes on the WV meter with clearly different timbres.
+// note("C3*9").s("gb.bass gb.sub-bass gb.triangle gb.organ gb.voice gb.saw-double gb.acid-pwm gb.slap-bass gb.fuzz-guitar").slow(3)
+
+// [IN-06] Noise Percussion Presets Test
+// Scope: Verifies the 18 Noise presets (lfsr + frequency + envelope per preset).
+// Expected Output: A drum kit sweep on the NS meter, from kick to wind.
+// note("C4*18").s("gb.kick gb.kick-noise gb.snare gb.snare-tight gb.snare-lofi gb.hihat gb.hihat-open gb.cymbal gb.clap gb.cowbell gb.rimshot gb.shaker gb.tom gb.explosion gb.laser gb.rumble gb.engine gb.wind").slow(5)
+
+// [IN-07] Tuned Drum Presets Test
+// Scope: Verifies the drum presets that deliberately sit on tonal channels.
+// Expected Output: Three pitched drum hits on P1, then one on WV (gb.wave-kick).
+// note("C3*4").s("gb.pulse-kick gb.pulse-tom gb.pulse-snare gb.wave-kick").slow(2)
+
+// [IN-08] Chiptune FX Presets Test
+// Scope: Verifies the arp/sweep FX presets.
+// Expected Output: Rising power-up run, falling death jingle, long descending laser.
+// note("C5*3").s("gb.powerup gb.death gb.laser-long").slow(2)
+
+// [IN-09] Preset Channel Declaration Test
+// Scope: Verifies each preset routes itself without any .channel() call.
+// Expected Output: P1, P2, WV and NS meters light up in turn, in that order.
+// note("C4*4").s("gb.lead gb.pad gb.bass gb.snare").slow(2)
+
+// [IN-10] Explicit Control Overrides Preset Test
+// Scope: Verifies an explicit control beats the preset value it collides with.
+// Expected Output: gb.pluck (duty 12.5% by default) played at 75% duty - fatter, hollow.
+// note("C4").s("gb.pluck").duty(75)
+
+// [IN-11] Preset Channel Override Test
+// Scope: Verifies .channel() relocates a preset off its declared channel.
+// Expected Output: The Wave bass timbre request forced onto Pulse 2 - the P2 meter moves,
+//                  and the wavetable is ignored because Pulse has no wave RAM.
+// note("C3").s("gb.bass").channel("pulse2")
+
+// [IN-12] Unknown Preset Fallback Test
+// Scope: Verifies an unregistered gb.* name falls back rather than throwing.
+// Expected Output: Strudel reports the sound is not registered; no APU note is played.
+// note("C4").s("gb.does-not-exist")
+
+// [IN-13] Preset Envelope Direction Test
+// Scope: Verifies presets that swell instead of decay (slow-brass, soft-pad, bowed-string, wind).
+// Expected Output: Four notes that all fade IN from silence.
+// note("C4*4").s("gb.slow-brass gb.soft-pad gb.bowed-string gb.wind").slow(3)
+
+// [IN-14] Preset Panning Test
+// Scope: Verifies presets carrying their own pan value (harpsichord left, magic-chime right).
+// Expected Output: First note in the left speaker, second in the right.
+// note("C4 C5").s("gb.harpsichord gb.magic-chime")
+
+// [IN-15] Preset Built-in Arpeggiator Test
+// Scope: Verifies presets that ship an arp table (alien, coin, teleport, powerup, death).
+// Expected Output: Five chord-like or run-like sounds, each from one single note event.
+// note("C4*5").s("gb.alien gb.coin gb.teleport gb.powerup gb.death").slow(2)
+`,
+
+      test_tags: `// ==========================================
+// TAGS & PRECEDENCE TEST SUITE
+// ==========================================
+// Scope: every entry in TAGS, the tag value forms, and the resolution order
+//        DEFAULTS -> instrument preset -> tags (in order) -> explicit controls.
+// To run a test, uncomment its code line (remove the leading '//') and click "Play".
+// To put several tags on ONE note use a colon string ("nasal:staccato") or an
+// array (["nasal","staccato"]). A space- or comma-separated string is
+// mini-notation: it splits into several events with one tag each - see [TG-01].
+
+// --- ACTIVE PATTERN: comment this out to run one of the tests below ---
+note("C4").s("gb").tags("chiptune:staccato")
+
+// [TG-01] Multi-Tag Value Form Test
+// Scope: Which forms carry two tags on ONE note, and which split into events.
+// Expected Output: Lines 1 and 2 (colon, array) - one note that is both nasal
+//                  (12.5% duty) and staccato (short, snappy). Line 3 (space) -
+//                  TWO notes, the first only nasal, the second only staccato.
+//                  Line 4 (comma) - the same split, stacked instead of sequenced.
+// note("C4").s("gb").tags("nasal:staccato")
+// note("C4").s("gb").tags(["nasal", "staccato"])
+// note("C4").s("gb").tags("nasal staccato")
+// note("C4").s("gb").tags("nasal,staccato")
+
+// [TG-02] Patternified Array Element Test
+// Scope: Strudel patternifies every element of an array argument, so the array
+//        arrives full of Pattern objects instead of strings. Reading one as a
+//        string used to throw inside the plugin and drop the note in silence.
+// Expected Output: A nasal staccato note - identical to line 1 of [TG-01].
+// note("C4").s("gb").tags(["nasal", "staccato"])
+
+// [TG-03] Compatibility Tags Test
+// Scope: Verifies the legacy tags bright, warm, soft, retro.
+// Expected Output: Four notes - thin/bright, round/warm, quiet/soft, then a swept arp.
+// note("C4*4").s("gb").tags("bright warm soft retro").slow(2)
+
+// [TG-04] Pulse Timbre Tags Test
+// Scope: Verifies nasal (12.5), chiptune (25), hollow (50), biting (75) duty tags.
+// Expected Output: Four notes stepping through all four hardware duty cycles.
+// note("C4*4").s("gb").channel("pulse1").tags("nasal chiptune hollow biting").slow(2)
+
+// [TG-05] Pitch Sweep Tags Test (Pulse 1 only)
+// Scope: Verifies gliss-up, gliss-down and blip write the sweep register.
+// Expected Output: Note sliding up, note sliding down, then a fast downward blip.
+// note("C4*3").s("gb").channel("pulse1").tags("gliss-up gliss-down blip").slow(2)
+
+// [TG-06] Sweep Tag On Pulse 2 Test
+// Scope: Verifies a sweep tag is silently inert on Pulse 2, which has no sweep unit.
+// Expected Output: Two flat notes with no pitch movement at all.
+// note("C4 C4").s("gb").channel("pulse2").tags("gliss-up")
+
+// [TG-07] Wave Timbre Tags Test
+// Scope: Verifies the six wavetable tags rewrite wave RAM.
+// Expected Output: Six bass notes: smooth sine, soft triangle, bright saw, square,
+//                  buzzy custom table, then a quieter sub.
+// note("C3*6").s("gb").channel("wave").tags("sine-smooth tri-soft saw-bright pulse-wave digi-buzzy sub-octave").slow(3)
+
+// [TG-08] Noise Tags Test
+// Scope: Verifies the six noise drum/FX tags set lfsr + frequency + envelope.
+// Expected Output: Kick, snare, hihat, cymbal, explosion, laser - all on the NS meter.
+// note("C4*6").s("gb").channel("noise").tags("noise-kick noise-snare noise-hihat noise-cymbal noise-explosion noise-laser").slow(3)
+
+// [TG-09] Envelope Tags Test
+// Scope: Verifies the shared dynamic tags staccato, sustain, swell, ghost.
+// Expected Output: Very short note, long sustained note, note fading in, faint note.
+// note("C4*4").s("gb").tags("staccato sustain swell ghost").slow(3)
+
+// [TG-10] Tag Order Test (last tag wins)
+// Scope: Verifies tags are merged left to right, so a later tag overwrites an earlier
+//        one on the keys they share.
+// Expected Output: First note is 75% duty (biting wins), second is 12.5% (nasal wins).
+// note("C4").s("gb").tags("nasal:biting")
+// note("C4").s("gb").tags("biting:nasal")
+
+// [TG-11] Tag Beats Preset Test
+// Scope: Verifies a tag overrides the instrument preset it collides with.
+// Expected Output: gb.lead (25% duty by default) played at 12.5% - thinner and reedier.
+// note("C4").s("gb.lead").tags("nasal")
+
+// [TG-12] Explicit Control Beats Tag Test
+// Scope: Verifies an explicit control wins over a tag on the same key.
+// Expected Output: The nasal tag is overruled - the note plays at 50% duty.
+// note("C4").s("gb").tags("nasal").duty(50)
+
+// [TG-13] Unknown Tag Test
+// Scope: Verifies an unrecognised tag name is ignored instead of erroring.
+// Expected Output: A 75% duty note - the bogus tag is skipped, biting still applies.
+// note("C4").s("gb").tags("not-a-real-tag:biting")
+
+// [TG-14] Cross-Channel Tag Test
+// Scope: Verifies a wave-only tag on a pulse channel is inert (no wave RAM to write).
+// Expected Output: A normal pulse note; digi-buzzy changes nothing audible.
+// note("C4 C4").s("gb").channel("pulse1").tags("digi-buzzy")
+
+// [TG-15] Full Precedence Chain Test
+// Scope: Verifies preset, tag and explicit control resolve in that order in one note.
+// Expected Output: gb.pluck envelope replaced by sustain, then volume forced to 4 -
+//                  a long, quiet pluck.
+// note("C4").s("gb.pluck").tags("sustain").volume(4)
+
+// [TG-16] Priority Control Test
+// Scope: Verifies .priority() is accepted and forwarded with the note.
+// Expected Output: Two notes play; the priority values appear in the scheduled
+//                  message (check the browser console) and do not alter the sound.
+// note("C4 E4").s("gb").priority("1 10")
+`,
+
+      test_autochannels: `// ==========================================
+// SMART AUTO ROUTING TEST SUITE (.autoChannels())
+// ==========================================
+// Scope: the .autoChannels() pattern modifier, which is meant to pick a channel per
+//        note. Its intended rules, in order:
+//   1. an explicit .channel() is kept as-is
+//   2. otherwise the instrument preset's own channel is used
+//   3. otherwise drum-ish tags (kick/snare/hihat/cymbal) go to noise
+//   4. otherwise notes below A3 (midi 57) go to wave
+//   5. otherwise overlapping notes alternate between pulse1 and pulse2 by occupancy
+//
+// The bare "gb" sound expresses no channel preference, so rules 3-5 decide for it;
+// a named preset (gb.lead, gb.bass, gb.kick) always keeps the channel it declares.
+// Watch the P1/P2/WV/NS meters - the routing decision is only visible there.
+// To run a test, uncomment its code line and click "Play".
+
+// --- ACTIVE PATTERN: comment this out to run one of the tests below ---
+stack(
+  note("C5 E5 G5 E5").s("gb.lead").fast(2),
+  note("C2 G2").s("gb.bass"),
+  note("C4*4").s("gb.kick")
+).autoChannels()
+
+// [AR-01] Pass-Through Test
+// Scope: Verifies .autoChannels() does not disturb a pattern that already routes itself.
+// Expected Output: Identical to the same pattern without .autoChannels() - all on P1.
+// note("C5 D5 E5 G5").s("gb").channel("pulse1").autoChannels()
+
+// [AR-02] Explicit Channel Preserved Test
+// Scope: Verifies rule 1 - an explicit .channel() is never re-routed.
+// Expected Output: Every note on the WV meter, even though these are high notes.
+// note("C5 D5 E5 G5").s("gb").channel("wave").autoChannels()
+
+// [AR-03] Preset Channel Test
+// Scope: Verifies rule 2 - each preset's declared channel survives the router.
+// Expected Output: P1 (lead), P2 (pad), WV (bass), NS (snare) in turn.
+// note("C4*4").s("gb.lead gb.pad gb.bass gb.snare").slow(2).autoChannels()
+
+// [AR-04] Routing Regression Test
+// Scope: Compares one preset with and without the router - they must agree.
+// Expected Output: Both lines play the Wave bass timbre on the WV meter.
+// note("C2 G2").s("gb.bass")
+// note("C2 G2").s("gb.bass").autoChannels()
+
+// [AR-05] Low Note To Wave Test
+// Scope: Verifies rule 4 - low notes on a preset that declares no channel go to Wave.
+// Expected Output: The two low notes on WV, the two high notes on P1.
+// note("C2 C3 C5 E5").s("gb").autoChannels()
+
+// [AR-06] Drum Tag To Noise Test
+// Scope: Verifies rule 3 - a kick/snare/hihat/cymbal tag routes to the Noise channel.
+// Expected Output: Percussive hits on the NS meter, not pitched notes on P1.
+// note("C4*4").s("gb").tags("noise-kick").autoChannels()
+
+// [AR-07] Chord Spreading Test
+// Scope: Verifies rule 5 - notes that really overlap (a chord, or a stack) spread
+//        over Pulse 1 and Pulse 2 instead of colliding on one channel. Note that
+//        .legato() does not count: the router works from event spans, so a longer
+//        release does not make two notes overlap.
+// Expected Output: P1 and P2 both active, and NO POLYPHONY warning at polyphony 1.
+//                  A third simultaneous note has nowhere left to go and does warn.
+// note("[C5,E5]").s("gb").autoChannels()
+// note("[C5,E5,G5]").s("gb").autoChannels()
+
+// [AR-08] Stack Routing Test
+// Scope: Verifies a full arrangement routes itself with no .channel() call anywhere.
+// Expected Output: Lead on P1, bass on WV, drums on NS - preset channels decide.
+// stack(
+//   note("C5 D5 E5 G5").s("gb.lead").fast(2),
+//   note("C2 G2 C3 G2").s("gb.bass"),
+//   note("C4*4").s("gb.kick"),
+//   note("C6*8").s("gb.hihat")
+// ).autoChannels()
+
+// [AR-09] Occupancy Test
+// Scope: Verifies the router tracks how long each channel stays busy, so a long note
+//        pushes the next note onto the other pulse channel.
+// Expected Output: The sustained note holds P1 while the short notes land on P2.
+// stack(
+//   note("C5").s("gb").slow(2).tags("sustain"),
+//   note("E5 F5 G5 A5").s("gb")
+// ).autoChannels()
+
+// [AR-10] Idempotence Test
+// Scope: Verifies applying .autoChannels() twice changes nothing - the first pass
+//        writes a channel, and the second must treat it as explicit.
+// Expected Output: Identical routing and sound to [AR-05].
+// note("C2 C3 C5 E5").s("gb").autoChannels().autoChannels()
+
+// [AR-11] Routing Plus Controls Test
+// Scope: Verifies routed notes still carry their other controls (duty, envelope, pan).
+// Expected Output: Auto-routed notes that are also panned hard left then hard right.
+// note("C5 C2").s("gb").pan("-1 1").duty(25).autoChannels()
+`,
+
+      test_arp: `// ==========================================
+// HARDWARE ARPEGGIATOR TEST SUITE
+// ==========================================
+// Scope: .arpTable() / .arpSpeed(). The arpeggiator rewrites the frequency register
+//        many times per note to fake a chord on one monophonic channel.
+// Note: the control is arpTable, NOT arp - .arp() is Strudel core's chord arpeggiator
+//       and cannot be reused. arpTable values are semitone offsets from the note.
+// To run a test, uncomment its code line and click "Play".
+
+// --- ACTIVE PATTERN: comment this out to run one of the tests below ---
+note("C4").s("gb").arpTable([0, 4, 7, 12]).arpSpeed(20)
+
+// [AP-01] Array Form Test
+// Scope: Verifies the documented array form of the offset table.
+// Expected Output: One note event that sounds like a fast major triad + octave.
+// note("C4").s("gb").arpTable([0, 4, 7, 12]).arpSpeed(20)
+
+// [AP-02] Colon String Form Test
+// Scope: Verifies the colon-separated string form, which also arrives as one array.
+// Expected Output: Identical to [AP-01].
+// note("C4").s("gb").arpTable("0:4:7:12").arpSpeed(20)
+
+// [AP-03] Space String Trap Test
+// Scope: Verifies the failure mode of the space-separated form: the string is
+//        mini-notation, so each offset becomes its own event with a one-entry table.
+// Expected Output: NOT a chord - four plain notes, no arpeggio movement.
+// note("C4").s("gb").arpTable("0 4 7 12").arpSpeed(20)
+
+// [AP-04] Arp Speed Test
+// Scope: Verifies arpSpeed controls how fast the table is stepped through.
+// Expected Output: Three notes: slow audible stepping, medium, then a fused chord.
+// note("C4*3").s("gb").arpTable([0, 4, 7]).arpSpeed("4 12 30").slow(3)
+
+// [AP-05] Descending Table Test
+// Scope: Verifies negative offsets are accepted.
+// Expected Output: A downward chiptune run inside a single note.
+// note("C5").s("gb").arpTable([0, -3, -7, -12]).arpSpeed(18)
+
+// [AP-06] Single Entry Table Test
+// Scope: Verifies a one-entry table degrades to a plain note.
+// Expected Output: An ordinary C4 with no movement.
+// note("C4").s("gb").arpTable([0]).arpSpeed(20)
+
+// [AP-07] Non-Zero First Offset Test
+// Scope: Verifies the table is applied as written, without assuming it starts at 0.
+// Expected Output: A chord that never sounds the written C4 root - it starts a
+//                  fifth above it.
+// note("C4").s("gb").arpTable([7, 12, 16]).arpSpeed(20)
+
+// [AP-08] Per-Channel Arpeggiator Test
+// Scope: Verifies the arpeggiator works on all four channels.
+// Expected Output: Arpeggio on P1, P2, WV, then a stepping noise pitch on NS.
+// note("C4*4").s("gb").channel("pulse1 pulse2 wave noise").arpTable([0, 4, 7]).arpSpeed(16).slow(3)
+
+// [AP-09] Arp Plus Sweep Test
+// Scope: Verifies the arpeggiator and the Pulse 1 sweep unit both write frequency.
+// Expected Output: An arpeggio that also drifts upward - the two effects fight,
+//                  which is the real hardware behaviour.
+// note("C4").s("gb").channel("pulse1").arpTable([0, 4, 7]).arpSpeed(16).pitchSweep({ rate: 4, amount: 2 })
+
+// [AP-10] Arp Plus Envelope Test
+// Scope: Verifies the volume envelope keeps running across arpeggio steps.
+// Expected Output: A chord that decays away while still arpeggiating.
+// note("C4").s("gb").arpTable([0, 4, 7, 12]).arpSpeed(24).envelope({ initial: 15, direction: "down", pace: 3 })
+
+// [AP-11] Preset Arp Override Test
+// Scope: Verifies .arpTable() replaces the table baked into a preset.
+// Expected Output: gb.alien plays a major triad instead of its own [0,2,0,-2] wobble.
+// note("C4").s("gb.alien").arpTable([0, 4, 7])
+
+// [AP-12] Retro Tag Arp Test
+// Scope: Verifies the retro tag supplies an arp table through the tag system.
+// Expected Output: A swept major-triad arpeggio with no explicit arpTable call.
+// note("C4").s("gb").tags("retro")
+`,
+
+      test_notes: `// ==========================================
+// NOTE PARSING & RANGE TEST SUITE
+// ==========================================
+// Scope: gbNoteToMidi() name parsing, numeric notes, direct frequencies, and the
+//        strict-mode frequency bounds per channel.
+// Read the diagnostic log in the sidebar and the browser console for warnings.
+// To run a test, uncomment its code line and click "Play".
+
+// --- ACTIVE PATTERN: comment this out to run one of the tests below ---
+note("C4 c4 G#4 Ab4").s("gb")
+
+// [NT-01] Case Insensitivity Test
+// Scope: Verifies upper and lower case note names parse to the same pitch.
+// Expected Output: Four identical C4s.
+// note("C4 c4 C4 c4").s("gb")
+
+// [NT-02] Sharp Spelling Test
+// Scope: Verifies both sharp spellings, '#' and 's'.
+// Expected Output: Two identical G#4s.
+// note("G#4 Gs4").s("gb")
+
+// [NT-03] Flat Spelling Test
+// Scope: Verifies both flat spellings, 'b' and 'f'.
+// Expected Output: Two identical Ab3s.
+// note("Ab3 Af3").s("gb")
+
+// [NT-04] Enharmonic Equivalence Test
+// Scope: Verifies a sharp and its flat spelling produce one pitch.
+// Expected Output: Two identical pitches (G#4 = Ab4).
+// note("G#4 Ab4").s("gb")
+
+// [NT-05] Octave Range Test
+// Scope: Verifies octave digits across the usable Pulse range.
+// Expected Output: Six Cs, one octave apart, ascending.
+// note("C2 C3 C4 C5 C6 C7").s("gb").fast(2)
+
+// [NT-06] Numeric Note Test
+// Scope: Verifies a raw MIDI number is accepted in place of a name.
+// Expected Output: 60 sounds as C4, 72 as C5 - same pitches as the named form.
+// note("60 72").s("gb")
+
+// [NT-07] Invalid Note Name Test
+// Scope: Verifies an unparseable name warns and falls back to 440Hz.
+// Expected Output: One A4-ish note plus an "Unrecognised note name" console warning.
+// note("H4").s("gb")
+
+// [NT-08] Pulse Low Bound Test
+// Scope: Verifies the strict-mode Pulse lower limit (64Hz).
+// Expected Output: A FREQUENCY strict warning in the sidebar; pitch clamped.
+// note("C1").s("gb").channel("pulse1")
+
+// [NT-09] Pulse High Bound Test
+// Scope: Verifies very high pitches stay inside the Pulse range (up to 131kHz).
+// Expected Output: A shrill note with no frequency warning.
+// note("C8").s("gb").channel("pulse1")
+
+// [NT-10] Wave Low Bound Test
+// Scope: Verifies the Wave channel accepts pitches below the Pulse floor (down to 32Hz).
+// Expected Output: A sub-bass note on WV with no frequency warning.
+// note("C1").s("gb").channel("wave").volume(15)
+
+// [NT-11] Wave Out Of Range Test
+// Scope: Verifies the Wave lower limit still warns below 32Hz.
+// Expected Output: A FREQUENCY strict warning naming the Wave channel.
+// note("C0").s("gb").channel("wave").volume(15)
+
+// [NT-12] Noise Pitch Independence Test
+// Scope: Verifies the Noise channel ignores note pitch - its rate comes from
+//        .frequency() alone.
+// Expected Output: Four identical noise hits despite four different note names.
+// note("C2 C4 C6 C8").s("gb").channel("noise")
+
+// [NT-13] Rest Test
+// Scope: Verifies mini-notation rests produce no APU event at all.
+// Expected Output: Note, silence, note, silence - and no stuck channel afterwards.
+// note("C4 ~ E4 ~").s("gb")
+
+// [NT-14] Chord Notation Test
+// Scope: Verifies a stacked chord fans out into simultaneous events on one channel.
+// Expected Output: A POLYPHONY strict warning at polyphony 1; raise the Polyphony
+//                  dropdown to 4 and the chord plays cleanly.
+// note("[C4,E4,G4]").s("gb")
+`,
+
+      test_values: `// ==========================================
+// PARAMETER VALUE FORM TEST SUITE
+// ==========================================
+// Scope: how each control accepts its value. Strudel patternifies control
+//        arguments, so the accepted forms are not obvious - this suite pins them down.
+// To run a test, uncomment its code line and click "Play".
+
+// --- ACTIVE PATTERN: comment this out to run one of the tests below ---
+note("C4").s("gb").envelope({ initial: 15, direction: "down", pace: 2 })
+
+// [VF-01] Object Control With String Field Test
+// Scope: A string inside a control object arrives as a Pattern, which cannot cross
+//        the MessagePort. gbSanitize() must collapse it before scheduling.
+// Expected Output: A decaying note - NOT silence, and no DataCloneError in the console.
+// note("C4").s("gb").envelope({ initial: 15, direction: "down", pace: 2 })
+
+// [VF-02] Object Control With Patterned Field Test
+// Scope: A mini-notation string inside a control object is a whole Pattern, but a
+//        hardware register holds one value - it must collapse, not kill the note.
+// Expected Output: Four notes at the FIRST value of the field (initial 15). Pattern
+//                  the note or the whole control if you want it to vary.
+
+// [VF-03] Wavetable Hex String Test
+// Scope: Verifies a 32-character hex string is written straight into wave RAM.
+// Expected Output: A stepped ramp timbre on WV.
+// note("C3").s("gb").channel("wave").wave("0123456789ABCDEFFEDCBA9876543210").volume(15)
+
+// [VF-04] Wavetable Array Test
+// Scope: Verifies a 32-entry array of 0-15 samples is accepted.
+// Expected Output: The same triangle-ish timbre as [VF-03].
+// note("C3").s("gb").channel("wave").wave([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0]).volume(15)
+
+// [VF-05] Wavetable Named Shape Test
+// Scope: Verifies the built-in shape names.
+// Expected Output: Four clearly different Wave timbres.
+// note("C3*4").s("gb").channel("wave").wave("sine triangle sawtooth square").volume(15).slow(2)
+
+// [VF-06] Short Wavetable Test
+// Scope: Verifies a hex string shorter than 32 digits does not crash the processor.
+// Expected Output: A note plays (table padded or partially written), no console error.
+// note("C3").s("gb").channel("wave").wave("0F0F").volume(15)
+
+// [VF-07] Noise Frequency Numeric Form Test
+// Scope: Verifies the raw NR43 byte form of .frequency().
+// Expected Output: Four noise hits getting finer/higher in pitch.
+// note("C4*4").s("gb").channel("noise").frequency("0x70 0x50 0x30 0x10").slow(2)
+
+// [VF-08] Noise Frequency Object Form Test
+// Scope: Verifies the {shift, dividing} object form.
+// Expected Output: Four noise hits with distinct clock rates.
+// note("C4*4").s("gb").channel("noise").frequency({ shift: "8 6 4 2", dividing: 1 }).slow(2)
+
+// [VF-09] Volume Versus Envelope Test
+// Scope: Pulse and Noise have no volume register - .volume() has to be folded into
+//        the envelope's initial level, and an explicit .envelope() must win.
+// Expected Output: First note quiet (volume 3 honoured), second loud (envelope wins
+//                  over volume 3).
+// note("C4").s("gb").volume(3)
+// note("C4").s("gb").volume(3).envelope({ initial: 15, direction: "down", pace: 3 })
+
+// [VF-10] Wave Discrete Volume Test
+// Scope: Verifies the Wave channel's four hardware volume levels, and that an
+//        in-between value warns.
+// Expected Output: 15/8/4/0 play at four levels; the 7 raises a VOLUME strict warning.
+// note("C3*4").s("gb").channel("wave").volume("15 8 4 0").slow(2)
+// note("C3").s("gb").channel("wave").volume(7)
+
+// [VF-11] Length Counter Test
+// Scope: NRx4 bit 6 must be set for the length counter to actually count down,
+//        otherwise .length() loads a value that is never used.
+// Expected Output: Four notes of visibly increasing duration, each cut short by
+//                  the hardware timer rather than by the pattern.
+// note("C4*4").s("gb").length("5 15 30 60").slow(2)
+
+// [VF-12] Duty Value Form Test
+// Scope: Verifies both the percentage and the fractional spelling of duty.
+// Expected Output: Two identical 25% duty notes.
+// note("C4 C4").s("gb").duty("25 0.25")
+
+// [VF-13] Unsupported Duty Test
+// Scope: Verifies an unsupported duty warns and clamps.
+// Expected Output: A DUTY_CYCLE strict warning; the note plays at the nearest duty.
+// note("C4").s("gb").duty(33)
+
+// [VF-14] Discrete Pan Test
+// Scope: Verifies the three hardware pan positions written through NR51.
+// Expected Output: Left, centre, right.
+// note("C4 E4 G4").s("gb").pan("-1 0 1")
+
+// [VF-15] Intermediate Pan Test
+// Scope: Verifies an in-between pan value warns instead of silently rounding.
+// Expected Output: A PANNING strict warning; the note is placed at a hardware position.
+// note("C4").s("gb").pan(0.4)
+
+// [VF-16] Out Of Range Envelope Test
+// Scope: Verifies an initial volume outside 0-15 warns.
+// Expected Output: A VOLUME strict warning naming the initial value 20.
+// note("C4").s("gb").envelope({ initial: 20, direction: "down", pace: 3 })
+
+// [VF-17] Invalid LFSR Test
+// Scope: Verifies only 7-bit and 15-bit LFSR widths are accepted.
+// Expected Output: An LFSR strict warning; the hit still plays.
+// note("C4").s("gb").channel("noise").lfsr(9)
+
+// [VF-18] Mute And Solo Test
+// Scope: Verifies .mute() disconnects a channel via NR51 and .solo() silences the rest.
+// Expected Output: First stack - only the second note is audible. Second stack -
+//                  only the soloed Wave line is audible.
+// note("C4 E4").s("gb").mute("false true")
+// stack(
+//   note("C5 E5").s("gb.lead"),
+//   note("C3 G2").s("gb.bass").solo(true)
+// )
+`,
+
+      test_polyphony: `// ==========================================
+// POLYPHONY & STRICT MODE TEST SUITE
+// ==========================================
+// Scope: the voice pool and strict mode. Strict mode is enabled automatically when
+//        Polyphony is 1 (true Game Boy monophony-per-channel) and disabled above it.
+// Use the Polyphony dropdown in the top bar for these tests and watch the
+// diagnostic log in the sidebar - most assertions here are about warnings.
+// Strict mode WARNS, it never blocks: the note always plays.
+// To run a test, uncomment its code line and click "Play".
+
+// --- ACTIVE PATTERN: comment this out to run one of the tests below ---
+note("C4").s("gb").channel("pulse1")
+
+// [PY-01] Monophony Warning Test  (set Polyphony = 1)
+// Scope: Verifies overlapping notes on one channel raise a POLYPHONY warning.
+// Expected Output: A POLYPHONY warning naming pulse1; the notes still sound.
+// note("[C4,E4,G4]").s("gb").channel("pulse1")
+
+// [PY-02] Polyphony Pool Test  (set Polyphony = 4)
+// Scope: Verifies a larger pool spreads a chord across nodes and disables strict mode.
+// Expected Output: The same chord as [PY-01] plays cleanly with NO warning.
+// note("[C4,E4,G4]").s("gb").channel("pulse1")
+
+// [PY-03] Voice Release Test  (set Polyphony = 4)
+// Scope: Verifies each noteOff reaches the node that took the noteOn - a mismatch
+//        leaves a channel stuck on.
+// Expected Output: A run of overlapping notes that all release; silence at the end,
+//                  with no channel left lit in the visualizer.
+// note("C4 E4 G4 C5").s("gb").slow(0.5).legato(2)
+
+// [PY-04] Round Robin Test  (set Polyphony = 2)
+// Scope: Verifies two voices are reused in turn under a sustained load.
+// Expected Output: Two notes overlap cleanly; a third simultaneous note steals a voice.
+// note("[C4,E4]").s("gb")
+// note("[C4,E4,G4]").s("gb")
+
+// [PY-05] Cross-Channel Polyphony Test  (set Polyphony = 1)
+// Scope: Verifies monophony is per channel, not global - four channels at once is legal.
+// Expected Output: All four meters active simultaneously and no POLYPHONY warning.
+// stack(
+//   note("C5").s("gb.lead"),
+//   note("E4").s("gb.pad"),
+//   note("C3").s("gb.bass"),
+//   note("C4").s("gb.snare")
+// )
+
+// [PY-06] Warning Types Test  (set Polyphony = 1)
+// Scope: Verifies each strict check reports its own warning type.
+// Expected Output: FREQUENCY, PANNING, DUTY_CYCLE, VOLUME and LFSR warnings, one per line.
+// note("C1").s("gb").channel("pulse1")
+// note("C4").s("gb").pan(0.4)
+// note("C4").s("gb").duty(33)
+// note("C3").s("gb").channel("wave").volume(7)
+// note("C4").s("gb").channel("noise").lfsr(9)
+
+// [PY-07] Strict Mode Off Test  (set Polyphony = 2 or higher)
+// Scope: Verifies raising the polyphony turns the warnings off.
+// Expected Output: The same lines as [PY-06] produce NO warnings in the log.
+// note("C4").s("gb").duty(33)
+
+// [PY-08] Dense Pattern Stress Test  (set Polyphony = 8)
+// Scope: Verifies the pool survives a fast dense pattern without dropping or
+//        sticking notes.
+// Expected Output: A rapid clean run; the visualizer settles to idle when stopped.
+// note("C4 E4 G4 C5 E5 G5 C6 G5").s("gb.pluck").fast(4)
+
+// [PY-09] Auto Routing Instead Of Polyphony Test  (set Polyphony = 1)
+// Scope: Verifies .autoChannels() is the hardware-accurate way to play more than one
+//        note at a time - it spreads voices over channels rather than over nodes.
+// Expected Output: The chord plays with no POLYPHONY warning at polyphony 1 - the
+//                  notes land on different channels instead of stacking on one.
+// note("[C5,E5]").s("gb").autoChannels()
+`,
+
+      test_multichannel: `// ==========================================
+// MULTI-CHANNEL LAYERING TEST SUITE
+// ==========================================
+// Scope: all four APU channels running together - register independence, the shared
+//        stereo mixer (NR51), and mixed-channel arrangements.
+// To run a test, uncomment its code block and click "Play".
+
+// --- ACTIVE PATTERN: comment this out to run one of the tests below ---
+stack(
+  note("C5 D5 E5 G5").s("gb.lead").fast(2),
+  note("C4 E4 G4 B4").s("gb.pad"),
+  note("C2 G2 C3 G2").s("gb.bass"),
+  note("C4*4").s("gb.kick")
+)
+
+// [MC-01] Four Channel Test
+// Scope: Verifies all four channels can sound at once.
+// Expected Output: P1, P2, WV and NS meters all active; a full chiptune texture.
+// stack(
+//   note("C5 D5 E5 G5").s("gb").channel("pulse1").duty(25).volume(12).fast(2),
+//   note("C4 E4 G4 B4").s("gb").channel("pulse2").duty(50).volume(8),
+//   note("C2 G2 C3 G2").s("gb").channel("wave").wave("triangle").volume(15),
+//   note("C4*4").s("gb").channel("noise").lfsr(7).frequency({ shift: 3, dividing: 1 })
+// )
+
+// [MC-02] Register Independence Test
+// Scope: Verifies one channel's duty/envelope writes do not leak into another.
+// Expected Output: Pulse 1 stays a thin 12.5% staccato while Pulse 2 stays a hollow
+//                  50% sustain - neither drifts toward the other.
+// stack(
+//   note("C5*8").s("gb").channel("pulse1").duty(12.5).tags("staccato"),
+//   note("C4 G4").s("gb").channel("pulse2").duty(50).tags("sustain")
+// )
+
+// [MC-03] Shared Stereo Mixer Test
+// Scope: Verifies per-channel panning is independent through the single NR51 register.
+// Expected Output: Lead hard left, harmony hard right, bass centred.
+// stack(
+//   note("C5 E5").s("gb").channel("pulse1").pan(-1),
+//   note("G4 B4").s("gb").channel("pulse2").pan(1),
+//   note("C3").s("gb").channel("wave").pan(0).volume(15)
+// )
+
+// [MC-04] Per-Channel Mute Test
+// Scope: Verifies muting one channel leaves the others untouched.
+// Expected Output: Bass and drums keep playing; the lead drops out.
+// stack(
+//   note("C5 E5 G5 E5").s("gb.lead").mute(true),
+//   note("C2 G2").s("gb.bass"),
+//   note("C4*4").s("gb.kick")
+// )
+
+// [MC-05] Solo Across Channels Test
+// Scope: Verifies solo on one channel silences the rest.
+// Expected Output: Only the drum line is audible.
+// stack(
+//   note("C5 E5 G5 E5").s("gb.lead"),
+//   note("C2 G2").s("gb.bass"),
+//   note("C4*4").s("gb.kick").solo(true)
+// )
+
+// [MC-06] Mixed Preset Arrangement Test
+// Scope: Verifies presets from all four families coexist without register conflicts.
+// Expected Output: A short piece of music - lead, pad, bass and a two-part kit.
+// stack(
+//   note("C5 E5 G5 A5").s("gb.lead").fast(2),
+//   note("C4 G4").s("gb.pad").slow(2),
+//   note("C2 G2 C3 G2").s("gb.bass"),
+//   note("C4*4").s("gb.kick"),
+//   note("C6*8").s("gb.hihat")
+// )
+
+// [MC-07] Arpeggiator Plus Layers Test
+// Scope: Verifies a channel running the hardware arpeggiator does not disturb the
+//        frequency registers of the other channels.
+// Expected Output: A faux-chord on P1 over a steady WV bass that stays in tune.
+// stack(
+//   note("C4 F4 G4 C4").s("gb").channel("pulse1").arpTable([0, 4, 7, 12]).arpSpeed(20),
+//   note("C2 F2 G2 C2").s("gb").channel("wave").volume(15)
+// )
+
+// [MC-08] Sweep Plus Layers Test
+// Scope: Verifies the Pulse 1 sweep unit only moves Pulse 1.
+// Expected Output: A sliding P1 lead over a P2 harmony that holds its pitch.
+// stack(
+//   note("C4 G4 C5").s("gb").channel("pulse1").pitchSweep({ rate: 2, amount: 3 }),
+//   note("E4 G4 B4").s("gb").channel("pulse2").duty(50)
+// )
+
+// [MC-09] Channel Handoff Test
+// Scope: Verifies the same melody moving between channels mid-pattern.
+// Expected Output: One line that hops P1 -> P2 -> WV -> P1 while staying in tune
+//                  (the WV note uses the wavetable timbre).
+// note("C5 D5 E5 F5").s("gb").channel("pulse1 pulse2 wave pulse1").volume(15)
+
+// [MC-10] Full Mix Teardown Test
+// Scope: Verifies every channel releases when the pattern stops - a missed noteOff
+//        leaves a channel droning.
+// Expected Output: Press stop and all four meters fall to zero with no residual tone.
+// stack(
+//   note("C5*4").s("gb.lead"),
+//   note("E4*2").s("gb.pad"),
+//   note("C2").s("gb.bass"),
+//   note("C4*4").s("gb.snare")
+// )
+`
     };
 
     const screenDisplay = document.getElementById('screenDisplay');

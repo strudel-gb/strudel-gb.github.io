@@ -43,19 +43,18 @@ test.describe('strudel-gb Local REPL Studio', () => {
   // Loading a sample into the editor proves nothing about whether it makes a
   // sound, so each built-in demo is played and measured.
   const SAMPLES = [
-    ['pulse1_sweep', 'Pulse 1 Sweep'],
-    ['pulse2_duty', 'Pulse 2 Duty Cycle'],
-    ['wave_custom', 'Wave Custom Table'],
-    ['noise_drums', 'Noise Channel Drums'],
-    ['multi_channel_demo', '// Multi-Channel Stack Demo (Phase 2)'],
-    ['phase3_instruments', '// Instruments Demo'],
-    ['phase3_tags', '// Tags & Priority Demo'],
-    ['phase3_arp', '// Hardware Arpeggiator (Faux-Chords) Demo'],
-    ['phase4_autochannels', 'Smart Auto Routing'],
     ['test_pulse1', '// PULSE 1 CHANNEL COMPREHENSIVE TEST SUITE'],
     ['test_pulse2', '// PULSE 2 CHANNEL COMPREHENSIVE TEST SUITE'],
     ['test_wave', '// WAVE CHANNEL COMPREHENSIVE TEST SUITE'],
     ['test_noise', '// NOISE CHANNEL COMPREHENSIVE TEST SUITE'],
+    ['test_instruments', '// INSTRUMENT PRESET TEST SUITE'],
+    ['test_tags', '// TAGS & PRECEDENCE TEST SUITE'],
+    ['test_autochannels', '// SMART AUTO ROUTING TEST SUITE'],
+    ['test_arp', '// HARDWARE ARPEGGIATOR TEST SUITE'],
+    ['test_notes', '// NOTE PARSING & RANGE TEST SUITE'],
+    ['test_values', '// PARAMETER VALUE FORM TEST SUITE'],
+    ['test_polyphony', '// POLYPHONY & STRICT MODE TEST SUITE'],
+    ['test_multichannel', '// MULTI-CHANNEL LAYERING TEST SUITE'],
   ];
 
   for (const [value, expectedText] of SAMPLES) {

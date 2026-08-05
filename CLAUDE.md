@@ -111,11 +111,31 @@ events, so it cannot carry a list: `.arpTable("0 4 7 12")` gives the note only
 the first offset. Arrays (`[0,4,7,12]`) and colon strings (`"0:4:7:12"`) arrive
 as a single array value — those are the forms to document and test.
 
+**Array *elements* are patternified too.** `.tags(["nasal","staccato"])` arrives
+as an array of `Pattern`s, not of strings — a colon string, by contrast, arrives
+as plain strings. `resolveParams` called `.trim()` on an element, Strudel
+swallowed the `TypeError` inside `getTrigger` (it only `console.log`s it) and the
+note was never scheduled: silence with nothing in the console. Every value read
+in `resolveParams` now goes through `gbNormalizeParam()`, and tag lists through
+`gbTagList()`. Both live next to `gbSanitize` in `build.js`. A scalar register
+field collapses to one value (`gbScalar`); only `GB_LIST_KEYS` keep their array.
+Read a raw control value in `resolveParams` and you are back to this bug — the
+value may be a `Pattern` even when it looks like a string or a number.
+
 **Names can be shadowed by Strudel core.** `arp` is core's chord arpeggiator, so
 the plugin's control of that name was unreachable; `hwArp`/`gbArp` were listed in
 `createParams` but never worked either. The hardware arpeggiator is exposed as
 `arpTable`, folded into the internal `arp` key by `resolveParams`. Before adding
 a control, check the name is not already a `Pattern` method.
+
+**A hap carries the sound name in `value.s`, never `value.instrument`.**
+`.autoChannels()` looked up `val.instrument || 'gb'`, so the lookup always
+resolved to the `gb` preset (channel `pulse1`) and every note without an explicit
+`.channel()` was forced onto Pulse 1 — the drum-tag, low-note and pulse-alternation
+rules below it were dead code. The router now reads `val.instrument || val.s` and
+skips the bare `gb` name on purpose, so that sound (and only that sound) falls
+through to the pitch/tag rules. `resolveParams` takes the name as its
+`instrumentDefault` argument instead, which is why it never hit this.
 
 Also note that `initGBPlugin(ctx)` is called from `repl.html` **without** `core`,
 so everything in `build.js` guarded by `if (core && ...)` — the `arp`/`hwArp`

@@ -1421,6 +1421,55 @@ export function gbSanitize(val, depth) {
   return out;
 }
 
+// Every element of an array control argument is patternified too, so
+// .tags(["nasal","staccato"]) arrives as an array of Patterns, not of strings.
+// Reading one as a string threw inside resolveParams and the note was dropped
+// before it ever reached the APU. Collapse to a single plain scalar: a Pattern
+// becomes its first-cycle value, and a multi-value pattern keeps its first
+// value because a hardware register holds exactly one.
+export function gbScalar(val) {
+  const flat = gbSanitize(val);
+  if (Array.isArray(flat)) return flat.length ? gbScalar(flat[0]) : undefined;
+  return flat;
+}
+
+// Keys whose value is a list the hardware really wants (an arp offset table, a
+// 32-step wavetable), so the array must survive normalization.
+const GB_LIST_KEYS = ['arp', 'arpTable', 'hwArp', 'gbArp', 'waveTable', 'wave'];
+// Keys whose value is a record of scalar register fields.
+const GB_RECORD_KEYS = ['envelope', 'pitchSweep', 'frequency'];
+
+export function gbNormalizeParam(key, val) {
+  if (GB_LIST_KEYS.includes(key)) {
+    const flat = gbSanitize(val);
+    return Array.isArray(flat) ? flat.map(gbScalar) : flat;
+  }
+  if (GB_RECORD_KEYS.includes(key)) {
+    const flat = gbSanitize(val);
+    if (flat && typeof flat === 'object' && !Array.isArray(flat)) {
+      const out = {};
+      for (const k of Object.keys(flat)) out[k] = gbScalar(flat[k]);
+      return out;
+    }
+    return flat;
+  }
+  return gbScalar(val);
+}
+
+// Accepts every form a tag list can arrive in: a single name, a colon string
+// (which Strudel hands over as an array), a real array, or an array of
+// Patterns. Returns clean tag names.
+export function gbTagList(tags) {
+  const flat = gbSanitize(tags);
+  if (flat === undefined || flat === null || flat === '') return [];
+  const list = Array.isArray(flat) ? flat : String(flat).split(/[\s,:]+/);
+  return list
+    .map(gbScalar)
+    .filter(t => typeof t === 'string' || typeof t === 'number')
+    .map(t => String(t).trim())
+    .filter(t => t.length > 0);
+}
+
 export async function initGBPlugin(audioCtx, core) {
   await audioCtx.audioWorklet.addModule(blobURL);
   
@@ -1441,14 +1490,7 @@ export async function initGBPlugin(audioCtx, core) {
     Object.assign(resolved, instSettings);
 
     if (params.tags) {
-      let tagList = [];
-      if (typeof params.tags === 'string') {
-        tagList = params.tags.split(/[\s,]+/);
-      } else if (Array.isArray(params.tags)) {
-        tagList = params.tags;
-      }
-      for (const tag of tagList) {
-        const cleanTag = tag.trim();
+      for (const cleanTag of gbTagList(params.tags)) {
         if (TAGS[cleanTag]) {
           Object.assign(resolved, TAGS[cleanTag]);
         }
@@ -1456,20 +1498,20 @@ export async function initGBPlugin(audioCtx, core) {
     }
 
     const checkKeys = [
-      'channel', 'duty', 'volume', 'length', 'envelope', 'pitchSweep', 
-      'waveTable', 'wave', 'lfsr', 'frequency', 'priority', 'pan', 
+      'channel', 'duty', 'volume', 'length', 'envelope', 'pitchSweep',
+      'waveTable', 'wave', 'lfsr', 'frequency', 'priority', 'pan',
       'mute', 'solo', 'arp', 'arpTable', 'hwArp', 'gbArp', 'arpSpeed'
     ];
     if (params.hap && typeof params.hap === 'object') {
       for (const key of checkKeys) {
         if (params.hap[key] !== undefined) {
-          resolved[key] = params.hap[key];
+          resolved[key] = gbNormalizeParam(key, params.hap[key]);
         }
       }
     }
     for (const key of checkKeys) {
       if (params[key] !== undefined) {
-        resolved[key] = params[key];
+        resolved[key] = gbNormalizeParam(key, params[key]);
       }
     }
     // Pulse and noise have no separate volume register: the envelope's
@@ -1655,8 +1697,14 @@ export async function initGBPlugin(audioCtx, core) {
           let targetChannel = val.channel;
           
           if (!targetChannel) {
-            const inst = val.instrument || 'gb';
-            const instDef = INSTRUMENTS[inst] || {};
+            // Strudel stores the sound name in value.s - value.instrument is
+            // never set on a hap. Reading the wrong key made this lookup fall
+            // back to the 'gb' preset, whose channel is pulse1, so every note
+            // without an explicit .channel() was forced onto Pulse 1 and the
+            // pitch/tag rules below were dead code. The bare 'gb' sound states
+            // no routing intent, so it is deliberately left to those rules.
+            const inst = val.instrument || val.s;
+            const instDef = (inst && inst !== 'gb' && INSTRUMENTS[inst]) || {};
             if (instDef.channel) {
               targetChannel = instDef.channel;
             }
@@ -1670,8 +1718,8 @@ export async function initGBPlugin(audioCtx, core) {
               midi = Math.round(12 * Math.log2(val.freq / 440) + 69);
             }
             
-            const tagsStr = typeof val.tags === 'string' ? val.tags : Array.isArray(val.tags) ? val.tags.join(' ') : '';
-            const isDrums = tagsStr && (tagsStr.includes('kick') || tagsStr.includes('snare') || tagsStr.includes('hihat') || tagsStr.includes('cymbal'));
+            const tagNames = gbTagList(val.tags);
+            const isDrums = tagNames.some(t => t.includes('kick') || t.includes('snare') || t.includes('hihat') || t.includes('cymbal'));
             
             if (isDrums) {
               targetChannel = 'noise';

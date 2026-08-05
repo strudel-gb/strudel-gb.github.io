@@ -114,11 +114,22 @@ Instead of configuring hardware channels manually, the plugin comes with predefi
 
 ## 3. High-Level Tags (`.tags()`)
 
-Tags are shortcuts to apply pre-configured parameters. They can be combined as comma-separated or space-separated strings, or arrays.
+Tags are shortcuts to apply pre-configured parameters. Later tags override earlier ones on the keys they share, and an explicit control overrides any tag.
+
+To put **several tags on one note**, use a colon string or an array:
 
 ```javascript
-// A snappy, nasal pulse lead
-note("C4 E4 G4 C5").s("gb").tags("nasal, staccato")
+// A snappy, nasal pulse lead: both tags on every note
+note("C4 E4 G4 C5").s("gb").tags("nasal:staccato")
+note("C4 E4 G4 C5").s("gb").tags(["nasal", "staccato"])
+```
+
+A space- or comma-separated string is mini-notation, so it spreads the tags over
+*separate events* (one tag each) rather than combining them:
+
+```javascript
+// Two notes: the first only nasal, the second only staccato
+note("C4").s("gb").tags("nasal staccato")
 ```
 
 Here is a full breakdown of the tags and what parameters they override:
@@ -253,9 +264,11 @@ note("C4")
 ## 6. Smart Channel Routing (`.autoChannels()`)
 
 The plugin supports dynamic, smart voice allocation. By appending `.autoChannels()` to your pattern or stack, the plugin automatically routes notes to the appropriate Game Boy hardware channels:
-*   **Noise Channel (`noise`):** Any drum instruments (like `gb.kick`, `gb.snare`, `gb.hihat`) or notes containing drum tags are routed here.
+*   **Explicit `.channel()`:** always wins - the router never moves a note you placed yourself.
+*   **Preset channel:** a named preset keeps the channel it declares (`gb.bass` stays on Wave, `gb.kick` on Noise, `gb.pad` on Pulse 2). Only the bare `gb` sound is treated as "no preference" and left to the rules below.
+*   **Noise Channel (`noise`):** notes carrying a drum tag (`noise-kick`, `noise-snare`, `noise-hihat`, `noise-cymbal`) are routed here.
 *   **Wave Channel (`wave`):** Low-pitched bass notes (below MIDI 57 / A3) are automatically routed to the Wave channel for clean sub-bass.
-*   **Pulse Channels (`pulse1` & `pulse2`):** Melody and harmony notes are distributed to the two Pulse channels. If Pulse 1 is busy playing a note, the plugin automatically plays the next note on Pulse 2, enabling seamless **2-voice polyphony** (chords) on square waves. If both are busy, it performs voice stealing on Pulse 1.
+*   **Pulse Channels (`pulse1` & `pulse2`):** Melody and harmony notes are distributed to the two Pulse channels. If Pulse 1 is busy playing a note, the plugin automatically plays the next note on Pulse 2, enabling seamless **2-voice polyphony** (chords) on square waves. If both are busy, it performs voice stealing on Pulse 1. Occupancy is measured from event spans, so `.legato()` does not create an overlap - chords and stacks do.
 
 ```javascript
 stack(

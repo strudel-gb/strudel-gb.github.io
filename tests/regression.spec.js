@@ -6,6 +6,15 @@ import { openRepl, capture, hz, nearPitch } from './helpers/audio-probe.js';
  * silently wrong sound with no error in the console, which is exactly what the
  * old UI-text assertions could not see.
  */
+/** Plays `code`, then returns the audio analysis plus the strict warnings the
+ *  page logged while it played. */
+async function captureWithWarnings(page, code, ms = 1800) {
+  await page.evaluate(() => { document.getElementById('diagnosticLog').innerHTML = ''; });
+  const analysis = await capture(page, code, ms);
+  const warnings = await page.evaluate(() => document.getElementById('diagnosticLog').textContent);
+  return { analysis, warnings };
+}
+
 test.describe('Regression tests', () => {
   test.beforeEach(async ({ page }) => {
     await openRepl(page);
@@ -142,5 +151,140 @@ test.describe('Regression tests', () => {
     expect(full.rmsRight, 'right channel must carry audio').toBeGreaterThan(0.001);
     expect(movement, 'the arrangement must move through many pitches').toBeGreaterThan(6);
     expect(full.notes.some((n) => n.clarity > 0.6), 'melodic content must be audible').toBeTruthy();
+  });
+  // --- Tag value forms ---------------------------------------------------
+  // Every element of an array control argument is patternified, so
+  // .tags(["nasal","staccato"]) arrived as an array of Patterns. resolveParams
+  // called .trim() on them, Strudel swallowed the TypeError in getTrigger and
+  // the note was never scheduled: total silence, nothing in the console.
+
+  test('an array of tags applies every tag in it', async ({ page }) => {
+    const plain = await capture(page, 'note("C4").s("gb").channel("pulse1")');
+    const tagged = await capture(page, 'note("C4").s("gb").channel("pulse1").tags(["nasal","staccato"])');
+
+    expect(tagged.noteCount, 'an array of tags must still sound').toBeGreaterThan(0);
+    // nasal is duty 12.5%, staccato is a short hardware length: both must land.
+    expect(tagged.notes[0].duty, `expected a 12.5% duty, measured ${tagged.notes[0].duty}`)
+      .toBeLessThan(0.25);
+    expect(plain.notes[0].duty).toBeGreaterThan(0.35);
+    expect(tagged.notes[0].durationMs, 'staccato must shorten the note')
+      .toBeLessThan(plain.notes[0].durationMs);
+  });
+
+  test('a colon tag string applies every tag in it', async ({ page }) => {
+    // Strudel hands "a:b" over as an array, which is the documented way to put
+    // several tags on one note.
+    const a = await capture(page, 'note("C4").s("gb").channel("pulse1").tags("nasal:staccato")');
+    expect(a.noteCount).toBeGreaterThan(0);
+    expect(a.notes[0].duty).toBeLessThan(0.25);
+  });
+
+  test('the last tag wins on the keys two tags share', async ({ page }) => {
+    const nasalLast = await capture(page, 'note("C4").s("gb").channel("pulse1").tags("biting:nasal")');
+    const bitingLast = await capture(page, 'note("C4").s("gb").channel("pulse1").tags("nasal:biting")');
+    expect(nasalLast.notes[0].duty, 'nasal is 12.5%').toBeLessThan(0.25);
+    expect(bitingLast.notes[0].duty, 'biting is 75%').toBeGreaterThan(0.6);
+  });
+
+  test('an unknown tag is skipped instead of killing the note', async ({ page }) => {
+    const a = await capture(page, 'note("C4").s("gb").channel("pulse1").tags("not-a-real-tag:nasal")');
+    expect(a.noteCount, 'a bogus tag must not silence the note').toBeGreaterThan(0);
+    expect(a.notes[0].duty, 'the valid tag next to it must still apply').toBeLessThan(0.25);
+  });
+
+  test('an explicit control still wins over a tag', async ({ page }) => {
+    const a = await capture(page, 'note("C4").s("gb").channel("pulse1").tags("nasal").duty(75)');
+    expect(a.noteCount).toBeGreaterThan(0);
+    expect(a.notes[0].duty, 'duty(75) must overrule the nasal tag').toBeGreaterThan(0.6);
+  });
+
+  test('a multi-value string inside a control object still schedules', async ({ page }) => {
+    // A single-value nested string was already handled; a mini-notation string
+    // collapsed to an *array*, which the register write turned into silence.
+    const a = await capture(page, 'note("C4").s("gb").channel("pulse1").envelope({initial:"15 8",direction:"down",pace:2})');
+    expect(a.noteCount, 'a patterned field must not silence the note').toBeGreaterThan(0);
+    expect(a.notes[0].rmsTail, 'the envelope must still decay').toBeLessThan(a.notes[0].rmsHead);
+  });
+
+  test('an array of arp offsets and the colon form drive the same arpeggio', async ({ page }) => {
+    const asArray = await capture(page, 'note("C4").s("gb").channel("pulse1").arpTable([0,4,7,12]).arpSpeed(20)', 2400);
+    const asColon = await capture(page, 'note("C4").s("gb").channel("pulse1").arpTable("0:4:7:12").arpSpeed(20)', 2400);
+    for (const [label, a] of [['array', asArray], ['colon string', asColon]]) {
+      const steps = Math.max(...a.notes.map((n) => n.runs.length), 0);
+      expect(steps, `the ${label} form must step through several pitches`).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  // --- Smart auto routing ------------------------------------------------
+  // .autoChannels() read value.instrument, but Strudel stores the sound name in
+  // value.s, so the lookup fell back to the "gb" preset and every note without
+  // an explicit .channel() was forced onto Pulse 1. Rules 3-5 (drum tags,
+  // low notes, pulse alternation) were unreachable.
+
+  test('.autoChannels() keeps a preset on the channel it declares', async ({ page }) => {
+    // gb.bass is a Wave preset. Routed onto Pulse 1 it loses its wavetable and
+    // comes out as a plain square, which the crest factor exposes.
+    const direct = await capture(page, 'note("C3 G2").s("gb.bass")', 2400);
+    const routed = await capture(page, 'note("C3 G2").s("gb.bass").autoChannels()', 2400);
+
+    expect(direct.noteCount, 'gb.bass must sound').toBeGreaterThan(0);
+    expect(routed.noteCount, 'gb.bass must still sound through the router').toBeGreaterThan(0);
+    expect(
+      routed.notes[0].crest,
+      `routing must not change the waveform: ${routed.notes[0].crest} vs ${direct.notes[0].crest}`,
+    ).toBeCloseTo(direct.notes[0].crest, 0);
+  });
+
+  test('.autoChannels() sends a drum tag to the noise channel', async ({ page }) => {
+    const routed = await capture(page, 'note("C4*4").s("gb").tags("noise-kick").autoChannels()', 2400);
+    const tonal = await capture(page, 'note("C4*4").s("gb").tags("noise-kick")', 2400);
+
+    expect(routed.noteCount, 'the drum hits must sound').toBeGreaterThan(0);
+    // The LFSR is not tonal, so clarity collapses once the note lands on noise.
+    expect(
+      Math.max(...routed.notes.map((n) => n.clarity)),
+      'noise-routed hits must not be tonal',
+    ).toBeLessThan(Math.max(...tonal.notes.map((n) => n.clarity)));
+  });
+
+  test('.autoChannels() sends a note below the pulse floor to the wave channel', async ({ page }) => {
+    // Pulse bottoms out at 64Hz and strict mode says so; Wave reaches 32Hz.
+    const routed = await captureWithWarnings(page, 'note("C1").s("gb").autoChannels()');
+    const unrouted = await captureWithWarnings(page, 'note("C1").s("gb")');
+
+    expect(routed.analysis.noteCount, 'the low note must sound').toBeGreaterThan(0);
+    expect(unrouted.warnings, 'C1 on pulse1 must warn').toMatch(/Frequency Warning/);
+    expect(routed.warnings, 'C1 routed to wave must not warn').not.toMatch(/Frequency Warning/);
+  });
+
+  test('.autoChannels() spreads a chord across the pulse channels', async ({ page }) => {
+    // At polyphony 1 strict mode reports every monophony violation, so the
+    // warning log is the cheapest proof that the notes went to different
+    // channels rather than piling onto Pulse 1.
+    const routed = await captureWithWarnings(page, 'note("[C5,E5]").s("gb").autoChannels()');
+    const unrouted = await captureWithWarnings(page, 'note("[C5,E5]").s("gb")');
+
+    expect(routed.analysis.noteCount, 'the chord must sound').toBeGreaterThan(0);
+    expect(unrouted.warnings, 'two notes on one channel must warn').toMatch(/Polyphony Warning/);
+    expect(routed.warnings, 'a spread chord must not warn').not.toMatch(/Polyphony Warning/);
+  });
+
+  test('.autoChannels() leaves an explicit channel alone', async ({ page }) => {
+    const a = await capture(page, 'note("C5 D5").s("gb").channel("wave").volume(15).autoChannels()', 2400);
+    const b = await capture(page, 'note("C5 D5").s("gb").channel("wave").volume(15)', 2400);
+    expect(a.noteCount).toBeGreaterThan(0);
+    expect(a.notes[0].crest, 'an explicit channel must survive the router')
+      .toBeCloseTo(b.notes[0].crest, 0);
+  });
+
+  test('every preset family reaches the APU', async ({ page }) => {
+    // One preset per family: a silent family used to be invisible because the
+    // suites asserted on static visualizer labels.
+    const presets = ['gb.lead', 'gb.pad', 'gb.coin', 'gb.bass', 'gb.fuzz-guitar', 'gb.snare', 'gb.wave-kick', 'gb.powerup'];
+    for (const preset of presets) {
+      const a = await capture(page, `note("C3").s("${preset}")`, 1800);
+      expect(a.peak, `${preset} must produce sound`).toBeGreaterThan(0.002);
+      expect(a.noteCount, `${preset} must produce a note`).toBeGreaterThan(0);
+    }
   });
 });
