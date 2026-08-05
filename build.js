@@ -86,6 +86,16 @@ function envDirectionBit(direction) {
   return 1;
 }
 
+// A scheduled flag may be a string: '"false"' is truthy in JS, so muting on
+// '.mute("false")' would silence the channel. Read the intent, not the type.
+function gbFlagValue(v) {
+  if (typeof v === 'string') {
+    const t = v.trim().toLowerCase();
+    return !(t === '' || t === 'false' || t === '0' || t === 'off' || t === 'no');
+  }
+  return !!v;
+}
+
 class GBProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
@@ -533,8 +543,8 @@ class GBProcessor extends AudioWorkletProcessor {
       this.arpState[chanIndex].active = false;
     }
 
-    this.muteState[chanIndex] = event.mute !== undefined ? !!event.mute : false;
-    this.soloState[chanIndex] = event.solo !== undefined ? !!event.solo : false;
+    this.muteState[chanIndex] = event.mute !== undefined ? gbFlagValue(event.mute) : false;
+    this.soloState[chanIndex] = event.solo !== undefined ? gbFlagValue(event.solo) : false;
 
 
     const anySolo = this.soloState.some(s => s);
@@ -1471,6 +1481,20 @@ export function gbScalar(val) {
   return flat;
 }
 
+// Every control value can arrive as a string, and every non-empty string is
+// truthy - so .mute("false") muted the channel and .solo("false") soloed it,
+// which turned the mini-notation form .mute("false true") into total silence.
+export function gbFlag(val) {
+  const v = gbScalar(val);
+  if (typeof v === 'string') {
+    const t = v.trim().toLowerCase();
+    return !(t === '' || t === 'false' || t === '0' || t === 'off' || t === 'no');
+  }
+  return !!v;
+}
+
+// Keys holding an on/off switch rather than a register value.
+const GB_FLAG_KEYS = ['mute', 'solo'];
 // Keys whose value is a list the hardware really wants (an arp offset table, a
 // 32-step wavetable), so the array must survive normalization.
 const GB_LIST_KEYS = ['arp', 'arpTable', 'hwArp', 'gbArp', 'waveTable', 'wave'];
@@ -1478,6 +1502,9 @@ const GB_LIST_KEYS = ['arp', 'arpTable', 'hwArp', 'gbArp', 'waveTable', 'wave'];
 const GB_RECORD_KEYS = ['envelope', 'pitchSweep', 'frequency'];
 
 export function gbNormalizeParam(key, val) {
+  if (GB_FLAG_KEYS.includes(key)) {
+    return gbFlag(val);
+  }
   if (GB_LIST_KEYS.includes(key)) {
     const flat = gbSanitize(val);
     return Array.isArray(flat) ? flat.map(gbScalar) : flat;

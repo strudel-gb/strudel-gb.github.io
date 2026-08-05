@@ -151,6 +151,15 @@ prototype overrides, `registerSynth` — never runs in the shipped app. That is 
 - **NRx4 bit 6 enables the length counter.** Writing the trigger bit alone loads
   the length value but never counts it down, so `.length()` does nothing. Every
   channel's trigger write must set `0x40` when a length was given.
+- **A control value is a string, and every non-empty string is truthy.**
+  `.mute("false")` muted the channel and `.solo("false")` soloed it, so the
+  mini-notation form `.mute("false true")` silenced both notes. `mute`/`solo` go
+  through `gbFlag()` on the main thread and `gbFlagValue()` in the processor —
+  the worklet coerces too, because `playground.html` posts to the port itself.
+- **A comma in a control string is a mini-notation stack, not a separator.**
+  `.tags("a, b, c")` fires every tag simultaneously on one monophonic channel
+  (last write wins, no audible change), which is what the old `[WV-10]`/`[NS-11]`
+  samples did. Space separates events; colon (`"a:b"`) combines onto one note.
 - **Note names** are parsed by `gbNoteToMidi()`: case-insensitive, `#`/`s` sharp,
   `b`/`f` flat. Anything else warns and falls back to 440Hz.
 

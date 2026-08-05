@@ -287,4 +287,68 @@ test.describe('Regression tests', () => {
       expect(a.noteCount, `${preset} must produce a note`).toBeGreaterThan(0);
     }
   });
+  // --- Boolean-ish control values ----------------------------------------
+  // Control values arrive as strings, and every non-empty string is truthy, so
+  // .mute("false") muted the channel and .solo("false") soloed it. The
+  // mini-notation form .mute("false true") therefore silenced both notes.
+
+  test('.mute() reads the string "false" as off', async ({ page }) => {
+    const off = await capture(page, 'note("C3").s("gb").channel("wave").volume(15).mute("false")');
+    const on = await capture(page, 'note("C3").s("gb").channel("wave").volume(15).mute("true")');
+    expect(off.peak, 'mute("false") must still sound').toBeGreaterThan(0.002);
+    expect(on.peak, 'mute("true") must silence the channel').toBeLessThan(off.peak * 0.1);
+  });
+
+  test('.mute("false true") plays the first note and silences the second', async ({ page }) => {
+    // The pattern loops, so counting segments proves nothing: measure how much
+    // audio the two notes carry together.
+    const both = await capture(page, 'note("C3 E3").s("gb").channel("wave").volume(15).slow(2)', 3600);
+    const half = await capture(page, 'note("C3 E3").s("gb").channel("wave").volume(15).mute("false true").slow(2)', 3600);
+    expect(half.peak, 'the unmuted note must still sound').toBeGreaterThan(0.002);
+    expect(
+      half.rmsLeft + half.rmsRight,
+      'muting one of the two notes must roughly halve the audio',
+    ).toBeLessThan((both.rmsLeft + both.rmsRight) * 0.6);
+  });
+
+  test('.solo() reads the string "false" as off', async ({ page }) => {
+    // A false solo must not mute every other channel. Panning the two layers to
+    // opposite sides makes the silencing measurable: solo mutes through NR51, so
+    // the other channel's whole side of the stereo field drops out.
+    const code = (soloVal) => `stack(
+  note("C5*8").s("gb").channel("pulse1").volume(15).pan(-1),
+  note("C3").s("gb").channel("wave").volume(15).pan(1).solo(${soloVal})
+)`;
+    const noSolo = await capture(page, code('"false"'), 3600);
+    const soloed = await capture(page, code('"true"'), 3600);
+    expect(soloed.rmsRight, 'the soloed channel must sound').toBeGreaterThan(0.002);
+    expect(
+      noSolo.rmsLeft,
+      'solo("false") must leave the other channel audible',
+    ).toBeGreaterThan(soloed.rmsLeft * 1.8);
+  });
+
+  test('every channel honours .mute() with string values', async ({ page }) => {
+    for (const channel of ['pulse1', 'pulse2', 'wave', 'noise']) {
+      const vol = channel === 'wave' ? '.volume(15)' : '';
+      const off = await capture(page, `note("C4").s("gb").channel("${channel}")${vol}.mute("false")`);
+      const on = await capture(page, `note("C4").s("gb").channel("${channel}")${vol}.mute("true")`);
+      expect(off.peak, `${channel}: mute("false") must sound`).toBeGreaterThan(0.002);
+      expect(on.peak, `${channel}: mute("true") must be silent`).toBeLessThan(off.peak * 0.1);
+    }
+  });
+
+  test('a space-separated tag list applies one tag per note', async ({ page }) => {
+    // Commas are a mini-notation *stack*: a comma list fires every tag at once on
+    // a monophonic channel, so the last one wins and the timbre never changes.
+    // A space list sequences them, which is what the sample suites use.
+    // Rests keep the two notes in separate segments; back to back they merge.
+    const a = await capture(page, 'note("C3 ~ C3 ~").s("gb").channel("wave").tags("sine-smooth sine-smooth pulse-wave pulse-wave").volume(15).slow(2)', 4000);
+    expect(a.noteCount, 'both notes must sound').toBeGreaterThanOrEqual(2);
+    const crests = a.notes.map((n) => n.crest);
+    expect(
+      Math.max(...crests) - Math.min(...crests),
+      `each tag must reshape the wave, got crests ${JSON.stringify(crests)}`,
+    ).toBeGreaterThan(0.25);
+  });
 });

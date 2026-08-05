@@ -615,9 +615,10 @@ note("C4").s("gb").channel("pulse1")
 // note("C4 E4 G4").s("gb gb.lead gb.pluck").channel("pulse1").fast(2)
 
 // [P1-12] Timbre & Envelope Preset Tags Test
-// Scope: Verifies tag overrides for duty cycle and envelope pace.
-// Expected Output: Reedy nasal staccato sound followed by hollow sustain sound.
-// note("C4 E4").s("gb").channel("pulse1").tags("nasal staccato, hollow sustain").fast(1)
+// Scope: Verifies tag overrides for duty cycle and envelope pace. Two tags on ONE
+//        note need the colon form; a space list spreads them over events.
+// Expected Output: Reedy nasal staccato note, then a hollow sustained note.
+// note("C4 E4").s("gb").channel("pulse1").tags("nasal:staccato hollow:sustain")
 
 // [P1-13] Mute & Solo Test
 // Scope: Verifies muting/soloing on Pulse 1.
@@ -754,13 +755,16 @@ note("C3").s("gb").channel("wave").volume(8)
 
 // [WV-10] Preset Tags Test
 // Scope: Verifies wave-specific tags: sine-smooth, tri-soft, saw-bright, pulse-wave, digi-buzzy, sub-octave.
-// Expected Output: Six notes morphing from smooth sine to buzzy, and ending with sub-bass.
-// note("C3 C3 C3 C3 C3 C3").s("gb").channel("wave").tags("sine-smooth, tri-soft, saw-bright, pulse-wave, digi-buzzy, sub-octave").fast(2)
+// Note: the tags are SPACE separated on purpose. Commas are a mini-notation stack,
+//       so a comma list fires all six tags at once on this monophonic channel.
+// Expected Output: Six notes morphing from smooth sine to buzzy, ending on a sub.
+// note("C3*6").s("gb").channel("wave").tags("sine-smooth tri-soft saw-bright pulse-wave digi-buzzy sub-octave").volume(15).slow(2)
 
 // [WV-11] Mute & Solo Test
-// Scope: Verifies muting/soloing on Wave channel.
-// Expected Output: Note playing, followed by a silenced note.
-// note("C3 E3").s("gb").channel("wave").mute("false true")
+// Scope: Verifies muting on the Wave channel. Note that "false" is a string here:
+//        it must read as OFF, not as a truthy value that mutes everything.
+// Expected Output: The first note plays, the second is silenced.
+// note("C3 E3").s("gb").channel("wave").volume(15).mute("false true")
 `,
 
       test_noise: `// ==========================================
@@ -822,9 +826,10 @@ note("C4").s("gb").channel("noise").volume(8)
 // note("C4 C4 C4 C4 C4 C4 C4").s("gb.kick gb.snare gb.hihat gb.cymbal gb.clap gb.cowbell gb.explosion").channel("noise").fast(2)
 
 // [NS-11] Noise Preset Tags Test
-// Scope: Verifies noise tags: noise-kick, noise-snare, noise-hihat, staccato, sustain.
-// Expected Output: Noise drum hits using tags.
-// note("C4 C4 C4 C4").s("gb").channel("noise").tags("noise-kick, noise-snare, noise-hihat, staccato").fast(2)
+// Scope: Verifies noise tags: noise-kick, noise-snare, noise-hihat, staccato.
+// Expected Output: Four different drum hits, one per tag. Space separated: commas
+//                  would stack all four tags onto every hit instead.
+// note("C4*4").s("gb").channel("noise").tags("noise-kick noise-snare noise-hihat staccato").slow(2)
 
 // [NS-12] Mute & Solo Test
 // Scope: Verifies muting/soloing on Noise channel.

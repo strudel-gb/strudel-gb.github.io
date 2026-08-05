@@ -56,6 +56,16 @@ function envDirectionBit(direction) {
   return 1;
 }
 
+// A scheduled flag may be a string: '"false"' is truthy in JS, so muting on
+// '.mute("false")' would silence the channel. Read the intent, not the type.
+function gbFlagValue(v) {
+  if (typeof v === 'string') {
+    const t = v.trim().toLowerCase();
+    return !(t === '' || t === 'false' || t === '0' || t === 'off' || t === 'no');
+  }
+  return !!v;
+}
+
 class GBProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
@@ -503,8 +513,8 @@ class GBProcessor extends AudioWorkletProcessor {
       this.arpState[chanIndex].active = false;
     }
 
-    this.muteState[chanIndex] = event.mute !== undefined ? !!event.mute : false;
-    this.soloState[chanIndex] = event.solo !== undefined ? !!event.solo : false;
+    this.muteState[chanIndex] = event.mute !== undefined ? gbFlagValue(event.mute) : false;
+    this.soloState[chanIndex] = event.solo !== undefined ? gbFlagValue(event.solo) : false;
 
 
     const anySolo = this.soloState.some(s => s);
